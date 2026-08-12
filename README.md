@@ -30,19 +30,22 @@ Download it here:
 👉 [https://dotnet.microsoft.com/en-us/download](https://dotnet.microsoft.com/en-us/download)
 
 Check installation:
-bash
+```bash
 dotnet --version
+```
 
 2. Clone the repository
 
-bash
+```bash
 git clone https://github.com/Bushmasterson/bush-tasks.git
 cd bush-tasks
+```
 
 3. Build the executable
 
-bash
+```bash
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+```
 
 4. Run the app
 
