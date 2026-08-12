@@ -46,7 +46,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 4. Run the app
 
-bash
+```bash
 cd publish
 ./bush-tasks.exe
-`
+```
