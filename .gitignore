@@ -11,4 +11,5 @@ tasks.json
 *.log
 *.tmp
 Thumbs.db
+node_modules/
 .DS_Store
