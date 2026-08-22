@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: bush-tasks
+            asset_name: bush-tasks-linux
+          - os: macos-latest
+            artifact_name: bush-tasks
+            asset_name: bush-tasks-macos
+          - os: windows-latest
+            artifact_name: bush-tasks.exe
+            asset_name: bush-tasks-windows.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o ${{ matrix.artifact_name }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o ${{ matrix.artifact_name }}
+
+      - name: Rename artifact
+        shell: bash
+        run: cp ${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
