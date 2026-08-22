@@ -1,20 +1,29 @@
 #include "core.h"
 
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <string>
 
 int main()
 {
-    auto tasks = bush_tasks::loadTasks("test_tasks.txt");
+    const std::string testFile = "test_tasks.txt";
+
+    // На случай, если файл остался от предыдущего запуска
+    std::remove(testFile.c_str());
+
+    auto tasks = bush_tasks::loadTasks(testFile);
     tasks.push_back("Тестовая задача");
 
-    bush_tasks::saveTasks(tasks, "test_tasks.txt");
+    bush_tasks::saveTasks(tasks, testFile);
     tasks.clear();
 
-    tasks = bush_tasks::loadTasks("test_tasks.txt");
+    tasks = bush_tasks::loadTasks(testFile);
     assert(tasks.size() == 1);
     assert(tasks[0] == "Тестовая задача");
 
-    std::cout << "Тест пройден" << std::endl;
+    // Убираем за собой
+    std::remove(testFile.c_str());
+
+    std::cout << "Test passed" << std::endl;
 }
