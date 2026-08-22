@@ -1,15 +1,24 @@
-bin/
-obj/
-publish/
-tasks.json
-.vscode/
-*.user
-*.suo
+# Build artifacts
+build/
 *.exe
-*.dll
-*.pdb
+*.o
+*.obj
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+Testing/
+
+# VS Code
+.vscode/
+.idea/
+
+# Logs
 *.log
-*.tmp
-Thumbs.db
-node_modules/
+
+# OS
 .DS_Store
+Thumbs.db
