@@ -2,12 +2,17 @@
 #include "cli.h"
 
 #include <iostream>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 int main()
 {
+#ifdef _WIN32
     SetConsoleOutputCP(65001);
     SetConsoleCP(65001);
+#endif
 
     const std::string filePath = "tasks.txt";
     auto tasks = bush_tasks::loadTasks(filePath);
