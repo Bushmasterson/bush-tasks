@@ -27,7 +27,7 @@ namespace bush_tasks
 
     void renderHelp()
     {
-        std::cout << "Команды: add <текст>, del <номер>, clear, exit" << std::endl;
+        std::cout << "Команды: add <текст>, del <номер>, tasks, clear, exit" << std::endl;
     }
 
     bool handleCommand(const std::string &input, std::vector<std::string> &tasks)
@@ -61,6 +61,10 @@ namespace bush_tasks
         {
             tasks.clear();
             std::cout << "Все задачи очищены" << std::endl;
+        }
+        else if (command == "tasks")
+        {
+            renderTasks(tasks);
         }
         else if (command == "exit")
         {
