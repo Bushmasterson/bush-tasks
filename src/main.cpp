@@ -14,7 +14,7 @@ int main()
     SetConsoleCP(65001);
 #endif
 
-    const std::string filePath = "tasks.txt";
+    const std::string filePath = "tasks.json";
     auto tasks = bush_tasks::loadTasks(filePath);
 
     while (true)

@@ -11,7 +11,7 @@ namespace bush_tasks
         std::cout << "bush-tasks" << std::endl;
     }
 
-    void renderTasks(const std::vector<std::string> &tasks)
+    void renderTasks(const std::vector<Task> &tasks)
     {
         if (tasks.empty())
         {
@@ -21,16 +21,25 @@ namespace bush_tasks
 
         for (size_t i = 0; i < tasks.size(); ++i)
         {
-            std::cout << i + 1 << ". " << tasks[i] << std::endl;
+            const auto &task = tasks[i];
+            std::cout << i + 1 << ". [" << task.status << "] [" << task.priority << "] "
+                       << task.text << " (создано: " << task.created << ")" << std::endl;
+
+            for (size_t j = 0; j < task.subtasks.size(); ++j)
+            {
+                std::cout << "    - " << task.subtasks[j] << std::endl;
+            }
         }
     }
 
     void renderHelp()
     {
-        std::cout << "Команды: add <текст>, del <номер>, edit <номер> <новый текст>, tasks, clear, exit" << std::endl;
+        std::cout << "Команды: add <текст>, del <номер>, edit <номер> <новый текст>, "
+                   << "sub <номер> <текст>, priority <номер> <low|medium|high|urgent>, "
+                   << "status <номер> <done|postponed|pending>, tasks, clear, exit" << std::endl;
     }
 
-    bool handleCommand(const std::string &input, std::vector<std::string> &tasks)
+    bool handleCommand(const std::string &input, std::vector<Task> &tasks)
     {
         std::string command;
         std::string argument;
@@ -40,7 +49,18 @@ namespace bush_tasks
         if (command == "add")
         {
             std::getline(iss, argument);
-            tasks.push_back(argument);
+            if (!argument.empty() && argument.front() == ' ')
+            {
+                argument.erase(0, 1);
+            }
+
+            Task task;
+            task.text = argument;
+            task.priority = "medium";
+            task.created = currentDate();
+            task.status = "pending";
+            tasks.push_back(task);
+
             std::cout << "Задача добавлена" << std::endl;
         }
         else if (command == "del")
@@ -68,15 +88,89 @@ namespace bush_tasks
             else
             {
                 std::getline(iss, argument);
-                if (argument.empty() || argument.find_first_not_of(" ") == std::string::npos)
+                if (!argument.empty() && argument.front() == ' ')
+                {
+                    argument.erase(0, 1);
+                }
+
+                if (argument.empty())
                 {
                     std::cout << "Не указан новый текст задачи" << std::endl;
                 }
                 else
                 {
-                    tasks[index - 1] = argument.substr(argument.find_first_not_of(" "));
+                    tasks[index - 1].text = argument;
                     std::cout << "Задача изменена" << std::endl;
                 }
+            }
+        }
+        else if (command == "sub")
+        {
+            int index;
+            iss >> index;
+            if (index < 1 || index > static_cast<int>(tasks.size()))
+            {
+                std::cout << "Неверный номер задачи" << std::endl;
+            }
+            else
+            {
+                std::getline(iss, argument);
+                if (!argument.empty() && argument.front() == ' ')
+                {
+                    argument.erase(0, 1);
+                }
+
+                if (argument.empty())
+                {
+                    std::cout << "Не указан текст подзадачи" << std::endl;
+                }
+                else
+                {
+                    tasks[index - 1].subtasks.push_back(argument);
+                    std::cout << "Подзадача добавлена" << std::endl;
+                }
+            }
+        }
+        else if (command == "priority")
+        {
+            int index;
+            iss >> index;
+            std::string level;
+            iss >> level;
+
+            if (index < 1 || index > static_cast<int>(tasks.size()))
+            {
+                std::cout << "Неверный номер задачи" << std::endl;
+            }
+            else if (level != "low" && level != "medium" && level != "high" && level != "urgent")
+            {
+                std::cout << "Приоритет должен быть: low, medium, high или urgent" << std::endl;
+            }
+            else
+            {
+                tasks[index - 1].priority = level;
+                std::cout << "Приоритет обновлён" << std::endl;
+            }
+        }
+        else if (command == "status")
+        {
+            int index;
+            iss >> index;
+            std::string newStatus;
+            iss >> newStatus;
+
+            if (index < 1 || index > static_cast<int>(tasks.size()))
+            {
+                std::cout << "Неверный номер задачи" << std::endl;
+            }
+            else if (newStatus != "done" && newStatus != "postponed" && newStatus != "pending")
+            {
+                std::cout << "Статус должен быть: done, postponed или pending" << std::endl;
+            }
+            else
+            {
+                tasks[index - 1].status = newStatus;
+                std::cout << "Статус обновлён" << std::endl;
             }
         }
         else if (command == "clear")
