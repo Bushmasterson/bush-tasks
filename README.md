@@ -1,6 +1,6 @@
 # bush-tasks
 
-A simple, fast and cool CLI task manager written in C++.
+A simple, fast CLI task manager written in C++.
 
 ## Overview
 
