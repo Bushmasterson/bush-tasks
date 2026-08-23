@@ -27,7 +27,7 @@ namespace bush_tasks
 
     void renderHelp()
     {
-        std::cout << "Команды: add <текст>, del <номер>, tasks, clear, exit" << std::endl;
+        std::cout << "Команды: add <текст>, del <номер>, edit <номер> <новый текст>, tasks, clear, exit" << std::endl;
     }
 
     bool handleCommand(const std::string &input, std::vector<std::string> &tasks)
@@ -55,6 +55,28 @@ namespace bush_tasks
             {
                 tasks.erase(tasks.begin() + index - 1);
                 std::cout << "Задача удалена" << std::endl;
+            }
+        }
+        else if (command == "edit")
+        {
+            int index;
+            iss >> index;
+            if (index < 1 || index > static_cast<int>(tasks.size()))
+            {
+                std::cout << "Неверный номер задачи" << std::endl;
+            }
+            else
+            {
+                std::getline(iss, argument);
+                if (argument.empty() || argument.find_first_not_of(" ") == std::string::npos)
+                {
+                    std::cout << "Не указан новый текст задачи" << std::endl;
+                }
+                else
+                {
+                    tasks[index - 1] = argument.substr(argument.find_first_not_of(" "));
+                    std::cout << "Задача изменена" << std::endl;
+                }
             }
         }
         else if (command == "clear")
