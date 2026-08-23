@@ -17,15 +17,18 @@ jobs:
           - os: ubuntu-latest
             artifact_name: bush-tasks
             test_name: test_core
-            asset_name: bush-tasks-linux
+            asset_name: bush-tasks-linux-amd64
+            extra_flags: ""
           - os: macos-latest
             artifact_name: bush-tasks
             test_name: test_core
-            asset_name: bush-tasks-macos
+            asset_name: bush-tasks-macos-universal
+            extra_flags: "-arch x86_64 -arch arm64"
           - os: windows-latest
             artifact_name: bush-tasks.exe
             test_name: test_core.exe
-            asset_name: bush-tasks-windows.exe
+            asset_name: bush-tasks-windows-amd64.exe
+            extra_flags: "-static -static-libgcc -static-libstdc++"
 
     runs-on: ${{ matrix.os }}
 
@@ -33,17 +36,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up MinGW (Windows only)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+
       - name: Build tests
-        shell: bash
-        run: g++ -std=c++17 -Iinclude src/core.cpp tests/test_core.cpp -o ${{ matrix.test_name }}
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+        run: g++ -std=c++17 ${{ matrix.extra_flags }} -Iinclude src/core.cpp tests/test_core.cpp -o ${{ matrix.test_name }}
 
       - name: Run tests
-        shell: bash
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
         run: ./${{ matrix.test_name }}
 
       - name: Build project
-        shell: bash
-        run: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o ${{ matrix.artifact_name }}
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+        run: g++ -std=c++17 ${{ matrix.extra_flags }} -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o ${{ matrix.artifact_name }}
 
       - name: Rename artifact
         shell: bash
@@ -59,15 +70,56 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      - name: Generate release notes
+        id: notes
+        run: |
+          body=$(gh api --method POST repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name=${{ github.ref_name }} --jq .body)
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          generate_release_notes: true
+          body: ${{ steps.notes.outputs.body }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        run: |
+          {
+            echo "## ${{ github.ref_name }} ($(date +%Y-%m-%d))"
+            echo ""
+            echo "${{ steps.notes.outputs.body }}"
+            echo ""
+          } > new_entry.md
+          if [ -f CHANGELOG.md ]; then
+            cat new_entry.md CHANGELOG.md > merged.md
+            mv merged.md CHANGELOG.md
+          else
+            mv new_entry.md CHANGELOG.md
+          fi
+          rm -f new_entry.md
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for ${{ github.ref_name }}" || echo "Nothing to commit"
+          git push origin HEAD:main
