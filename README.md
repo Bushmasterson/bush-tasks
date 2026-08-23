@@ -42,16 +42,3 @@ g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
 | del <number> | Deletes a task by number |
 | clear        | Clears the whole list    |
 | exit         | Exits the program        |
-
-### Example session
-
-> add Buy bread
-> Task added
-> add Call mom
-> Task added
-> del 1
-> Task deleted
-> clear
-> All tasks cleared
-> exit
-> Goodbye!
