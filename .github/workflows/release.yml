@@ -16,54 +16,66 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            GOOS: windows
-            GOARCH: amd64
-            ext: .exe
+            artifact: bush-tasks-windows-amd64.exe
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           - os: windows-latest
-            GOOS: windows
-            GOARCH: arm64
-            ext: .exe
+            artifact: bush-tasks-windows-arm64.exe
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: amd64
-            ext: ""
+            artifact: bush-tasks-linux-amd64
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: arm64
-            ext: ""
+            artifact: bush-tasks-linux-arm64
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: ubuntu-latest
-            GOOS: linux
-            GOARCH: 386
-            ext: ""
+            artifact: bush-tasks-linux-386
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: macos-latest
-            GOOS: darwin
-            GOARCH: amd64
-            ext: ""
+            artifact: bush-tasks-macos-amd64
+            command: clang++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks -arch x86_64
           - os: macos-latest
-            GOOS: darwin
-            GOARCH: arm64
-            ext: ""
+            artifact: bush-tasks-macos-arm64
+            command: clang++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks -arch arm64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
+      - name: Install C++ compiler (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ gcc
 
-      - name: Build
+      - name: Install C++ compiler (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build project (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir -p dist
-          GOOS=${{ matrix.GOOS }} GOARCH=${{ matrix.GOARCH }} go build -ldflags="-s -w" -o dist/${{ github.event.repository.name }}-${{ matrix.GOOS }}-${{ matrix.GOARCH }}${{ matrix.ext }}
-        shell: bash
+          ${{ matrix.command }}
+          cp bush-tasks dist/${{ matrix.artifact }}
+
+      - name: Build project (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          ${{ matrix.command }}
+          cp bush-tasks.exe dist/${{ matrix.artifact }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          path: dist/*
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
 
   release:
     name: Create Release and CHANGELOG
@@ -112,12 +124,5 @@ jobs:
           git add CHANGELOG.md
           git commit -m "docs: update CHANGELOG.md for ${{ github.ref_name }}" || echo "Nothing to commit"
           git push origin HEAD:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Release with new CHANGELOG
-        run: |
-          CHANGELOG_ENTRY=$(cat CHANGELOG.md | sed -n "/## ${{ github.ref_name }}/,/## /p" | head -n -1)
-          gh release edit ${{ github.ref_name }} --body "$CHANGELOG_ENTRY"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
