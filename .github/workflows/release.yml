@@ -16,23 +16,23 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: bush-tasks-windows-x86.exe
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
-          - os: windows-latest
             artifact: bush-tasks-windows-amd64.exe
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+          - os: windows-latest
+            artifact: bush-tasks-windows-x86.exe
+            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           - os: windows-latest
             artifact: bush-tasks-windows-arm64.exe
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           - os: ubuntu-latest
             artifact: bush-tasks-linux-amd64
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: ubuntu-latest
             artifact: bush-tasks-linux-arm64
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: ubuntu-latest
             artifact: bush-tasks-linux-386
-            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           - os: macos-latest
             artifact: bush-tasks-macos-amd64
             command: clang++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks -arch x86_64
