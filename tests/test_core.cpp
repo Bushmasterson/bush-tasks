@@ -9,7 +9,6 @@ int main()
 {
     const std::string testFile = "test_tasks.json";
 
-    // На случай, если файл остался от предыдущего запуска
     std::remove(testFile.c_str());
 
     auto tasks = bush_tasks::loadTasks(testFile);
@@ -30,7 +29,6 @@ int main()
     assert(tasks[0].priority == "medium");
     assert(tasks[0].status == "pending");
 
-    // Убираем за собой
     std::remove(testFile.c_str());
 
     std::cout << "Test passed" << std::endl;
