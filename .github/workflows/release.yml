@@ -16,6 +16,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            artifact: bush-tasks-windows-x86.exe
+            command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+          - os: windows-latest
             artifact: bush-tasks-windows-amd64.exe
             command: g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           - os: windows-latest
