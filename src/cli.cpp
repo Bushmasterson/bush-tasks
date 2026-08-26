@@ -34,9 +34,9 @@ namespace bush_tasks
 
     void renderHelp()
     {
-        std::cout << "Команды: add <текст>, del <номер>, edit <номер> <новый текст>, "
-                   << "sub <номер> <текст>, priority <номер> <low|medium|high|urgent>, "
-                   << "status <номер> <done|postponed|pending>, tasks, clear, exit" << std::endl;
+        std::cout << "Команды: add <text>, del <text>, edit <number> <text>, "
+                   << "sub <number> <text>, priority <number> <low|medium|high|urgent>, "
+                   << "status <number> <done|postponed|pending>, done, tasks, clear, exit" << std::endl;
     }
 
     bool handleCommand(const std::string &input, std::vector<Task> &tasks)
