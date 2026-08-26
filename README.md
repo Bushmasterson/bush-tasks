@@ -4,7 +4,7 @@ A simple, fast CLI task manager written in C++.
 
 ## Overview
 
-bush-tasks is a lightweight and cool terminal tool for managing your to-do list. Add tasks, remove them by number, list what's pending, or wipe the slate clean — all from the command line.
+bush-tasks is a lightweight terminal tool for managing your to-do list. Add tasks, remove them by number, list what's pending, or wipe the slate clean — all from the command line.
 
 ## Getting Started
 
