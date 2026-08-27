@@ -31,9 +31,7 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          Compress-Archive
-            -Path install\*
-            -DestinationPath bush_tasks-${{ github.ref_name }}-windows.zip
+          Compress-Archive -Path "install\*" -DestinationPath "bush_tasks-${{ github.ref_name }}-windows.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
