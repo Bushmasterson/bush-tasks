@@ -31,12 +31,15 @@ jobs:
             mingw_pkg: mingw-w64-i686-gcc
             cxx: g++
 
-          - os: windows-latest
+          # windows-arm64 собирается на ubuntu-latest через llvm-mingw:
+          # MSYS2 CLANGARM64 даёт ARM64-бинарники компилятора, которые
+          # не могут выполниться на x86_64-раннере windows-latest
+          # (отсюда "Exec format error"). llvm-mingw сам запускается
+          # на x86_64 Linux и кросс-компилирует под aarch64-w64-mingw32.
+          - os: ubuntu-latest
             target: windows-arm64
             artifact: bush-tasks-windows-arm64.exe
-            msystem: CLANGARM64
-            mingw_pkg: mingw-w64-clang-aarch64-clang
-            cxx: clang++
+            toolchain: llvm-mingw
 
           # ---------- Linux (native + cross) ----------
           - os: ubuntu-latest
@@ -120,7 +123,7 @@ jobs:
           install: ${{ matrix.mingw_pkg }}
 
       - name: Build (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.toolchain != 'llvm-mingw'
         shell: bash
         run: |
           mkdir -p dist
@@ -133,6 +136,23 @@ jobs:
           ${{ matrix.cxx }} -std=c++17 $STATIC_FLAGS ${{ matrix.extra_flags }} \
             -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           cp bush-tasks dist/${{ matrix.artifact }}
+
+      - name: Install llvm-mingw (Windows ARM64 cross-toolchain)
+        if: matrix.toolchain == 'llvm-mingw'
+        run: |
+          curl -L -o llvm-mingw.tar.xz \
+            https://github.com/mstorsjo/llvm-mingw/releases/download/20260616/llvm-mingw-20260616-ucrt-ubuntu-22.04-x86_64.tar.xz
+          tar -xf llvm-mingw.tar.xz
+          echo "$PWD/llvm-mingw-20260616-ucrt-ubuntu-22.04-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: Build (Windows ARM64 via llvm-mingw)
+        if: matrix.toolchain == 'llvm-mingw'
+        shell: bash
+        run: |
+          mkdir -p dist
+          aarch64-w64-mingw32-clang++ -std=c++17 -static -static-libgcc -static-libstdc++ \
+            -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+          cp bush-tasks.exe dist/${{ matrix.artifact }}
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
