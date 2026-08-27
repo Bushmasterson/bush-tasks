@@ -41,13 +41,13 @@ jobs:
             arch: arm64
             runner: ubuntu-24.04-arm
 
-          - os: macos
-            arch: arm64
-            runner: macos-latest
-
           - os: linux
             arch: armv7
             runner: ubuntu-24.04-arm
+
+          - os: macos
+            arch: arm64
+            runner: macos-latest
 
     runs-on: ${{ matrix.runner }}
 
@@ -76,37 +76,25 @@ jobs:
             tar -czf "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" -C install .
           fi
 
-      - name: Upload artifact
+      - name: Create or update Release
         if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.zip
-            bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-          if-no-files-found: error
-
-  release:
-    name: Create Release
-    if: always()
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download successful artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: bush_tasks-*
-          merge-multiple: true
-
-      - name: Check artifacts
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          echo "Available release assets:"
-          find artifacts -type f -maxdepth 2 -print
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes
+          fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: artifacts/*
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            gh release upload "$TAG" \
+              "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.zip" \
+              --clobber
+          else
+            gh release upload "$TAG" \
+              "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" \
+              --clobber
+          fi
