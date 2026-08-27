@@ -4,41 +4,53 @@ A simple, fast CLI task manager written in C++.
 
 ## Overview
 
-bush-tasks is a lightweight and cool terminal tool for managing your to-do list. Add tasks, remove them by number, list what's pending, or wipe the slate clean — all from the command line.
+bush-tasks is a lightweight command-line application for managing your to-do list directly from the terminal.
+
+You can add tasks, delete them by number, clear the entire list, and exit the application — without unnecessary complexity.
+
+## Features
+
+- Add new tasks
+- Delete tasks by number
+- Clear the entire task list
+- Simple interactive CLI
+- Lightweight and fast
+- Written in modern C++
 
 ## Getting Started
 
 ### Prerequisites
 
-- A C++ compiler — MinGW-w64 is recommended on Windows
-- Git, to clone the repository
+- A C++17-compatible compiler
+- Git
+
+On Windows, MinGW-w64 or MSVC can be used.
 
 ### Installation
 
-1. Clone the repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/Bushmasterson/bush-tasks.git
 cd bush-tasks
 ```
 
-2. Compile the project
+### Build the application with CMake:
 
 ```bash
-g++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+cmake -S . -B build
+cmake --build build --config Release
 ```
 
-3. Run it
+### Building Tests
 
 ```bash
-./bush-tasks.exe
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build --config Release
 ```
 
-## Usage
+### Run the tests with CTest:
 
-| Command      | Description              |
-| ------------ | ------------------------ |
-| add <text>   | Adds a new task          |
-| del <number> | Deletes a task by number |
-| clear        | Clears the whole list    |
-| exit         | Exits the program        |
+```bash
+ctest --test-dir build -C Release --output-on-failure
+```
