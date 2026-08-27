@@ -10,68 +10,146 @@ permissions:
 
 jobs:
   build:
-    name: Build and Release
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
+          # ---------- Windows ----------
           - os: windows-latest
+            target: windows-amd64
             artifact: bush-tasks-windows-amd64.exe
-            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+            msystem: UCRT64
+            mingw_pkg: mingw-w64-ucrt-x86_64-gcc
+            cxx: g++
+
           - os: windows-latest
+            target: windows-x86
             artifact: bush-tasks-windows-x86.exe
-            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+            msystem: MINGW32
+            mingw_pkg: mingw-w64-i686-gcc
+            cxx: g++
+
           - os: windows-latest
+            target: windows-arm64
             artifact: bush-tasks-windows-arm64.exe
-            command: g++ -std=c++17 -static -static-libgcc -static-libstdc++ -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
+            msystem: CLANGARM64
+            mingw_pkg: mingw-w64-clang-aarch64-clang
+            cxx: clang++
+
+          # ---------- Linux (native + cross) ----------
           - os: ubuntu-latest
+            target: linux-amd64
             artifact: bush-tasks-linux-amd64
-            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            cxx: g++
+            static: full
+
           - os: ubuntu-latest
+            target: linux-arm64
             artifact: bush-tasks-linux-arm64
-            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            apt_pkg: g++-aarch64-linux-gnu
+            cxx: aarch64-linux-gnu-g++
+            static: libs
+
           - os: ubuntu-latest
+            target: linux-386
             artifact: bush-tasks-linux-386
-            command: g++ -std=c++17 -static -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+            apt_pkg: g++-multilib
+            cxx: g++
+            extra_flags: -m32
+            static: full
+
+          - os: ubuntu-latest
+            target: linux-armv7
+            artifact: bush-tasks-linux-armv7
+            apt_pkg: g++-arm-linux-gnueabihf
+            cxx: arm-linux-gnueabihf-g++
+            static: libs
+
+          - os: ubuntu-latest
+            target: linux-riscv64
+            artifact: bush-tasks-linux-riscv64
+            apt_pkg: g++-riscv64-linux-gnu
+            cxx: riscv64-linux-gnu-g++
+            static: libs
+
+          - os: ubuntu-latest
+            target: linux-ppc64le
+            artifact: bush-tasks-linux-ppc64le
+            apt_pkg: g++-powerpc64le-linux-gnu
+            cxx: powerpc64le-linux-gnu-g++
+            static: libs
+
+          - os: ubuntu-latest
+            target: linux-s390x
+            artifact: bush-tasks-linux-s390x
+            apt_pkg: g++-s390x-linux-gnu
+            cxx: s390x-linux-gnu-g++
+            static: libs
+
+          # ---------- macOS ----------
           - os: macos-latest
+            target: macos-amd64
             artifact: bush-tasks-macos-amd64
-            command: clang++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks -arch x86_64
+            cxx: clang++
+            extra_flags: -arch x86_64
+
           - os: macos-latest
+            target: macos-arm64
             artifact: bush-tasks-macos-arm64
-            command: clang++ -std=c++17 -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks -arch arm64
+            cxx: clang++
+            extra_flags: -arch arm64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install C++ compiler (Linux)
-        if: runner.os == 'Linux'
+      - name: Install cross toolchain (Linux)
+        if: runner.os == 'Linux' && matrix.apt_pkg != ''
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ gcc
+          sudo apt-get install -y ${{ matrix.apt_pkg }}
 
-      - name: Install C++ compiler (Windows)
+      - name: Install compiler (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: ${{ matrix.msystem }}
           update: true
-          install: mingw-w64-ucrt-x86_64-gcc
+          install: ${{ matrix.mingw_pkg }}
 
-      - name: Build project (Linux / macOS)
-        if: runner.os != 'Windows'
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist
-          ${{ matrix.command }}
+          STATIC_FLAGS=""
+          if [ "${{ matrix.static }}" = "full" ]; then
+            STATIC_FLAGS="-static -static-libgcc -static-libstdc++"
+          elif [ "${{ matrix.static }}" = "libs" ]; then
+            STATIC_FLAGS="-static-libgcc -static-libstdc++"
+          fi
+          ${{ matrix.cxx }} -std=c++17 $STATIC_FLAGS ${{ matrix.extra_flags }} \
+            -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
           cp bush-tasks dist/${{ matrix.artifact }}
 
-      - name: Build project (Windows)
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist
+          ${{ matrix.cxx }} -std=c++17 ${{ matrix.extra_flags }} \
+            -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks
+          cp bush-tasks dist/${{ matrix.artifact }}
+
+      - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
           mkdir -p dist
-          ${{ matrix.command }}
+          ${{ matrix.cxx }} -std=c++17 -static -static-libgcc -static-libstdc++ \
+            -Iinclude src/main.cpp src/core.cpp src/cli.cpp -o bush-tasks.exe
           cp bush-tasks.exe dist/${{ matrix.artifact }}
 
       - name: Upload artifact
