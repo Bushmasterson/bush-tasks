@@ -11,43 +11,43 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.os }}-${{ matrix.arch }}
+
     strategy:
       fail-fast: false
+
       matrix:
         include:
           - os: windows
             arch: x64
             runner: windows-latest
+
           - os: windows
             arch: x86
             runner: windows-latest
+
           - os: windows
             arch: arm64
             runner: windows-11-arm
+
           - os: linux
             arch: x64
             runner: ubuntu-latest
+
           - os: linux
             arch: x86
             runner: ubuntu-latest
+
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-          - os: linux
-            arch: armv7
-            runner: ubuntu-24.04-arm
-          - os: macos
-            arch: x64
-            runner: macos-13
+
           - os: macos
             arch: arm64
             runner: macos-latest
-          - os: freebsd
-            arch: x64
-            runner: ubuntu-latest
-          - os: freebsd
-            arch: arm64
-            runner: ubuntu-latest
+
+          - os: linux
+            arch: armv7
+            runner: ubuntu-24.04-arm
 
     runs-on: ${{ matrix.runner }}
 
@@ -55,18 +55,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        if: matrix.os == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
-
       - name: Configure
-        shell: bash
-        run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTING=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 
       - name: Build
         run: cmake --build build --config Release
@@ -87,26 +77,35 @@ jobs:
           fi
 
       - name: Upload artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.zip
             bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
 
   release:
-    name: Create GitHub Release
-    needs: build
+    name: Create Release
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download artifacts
+      - name: Download successful artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: bush_tasks-*
           merge-multiple: true
 
-      - name: Create Release
+      - name: Check artifacts
+        shell: bash
+        run: |
+          echo "Available release assets:"
+          find artifacts -type f -maxdepth 2 -print
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
