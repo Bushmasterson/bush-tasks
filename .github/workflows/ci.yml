@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DBUILD_TESTING=ON
+
+      - name: Build Debug
+        run: cmake --build build --config Debug
+
+      - name: Test
+        run: ctest --test-dir build -C Debug --output-on-failure
+
+      - name: Configure Release
+        run: cmake -S . -B build-release -DBUILD_TESTING=ON
+
+      - name: Build Release
+        run: cmake --build build-release --config Release
+
+      - name: Test Release
+        run: ctest --test-dir build-release -C Release --output-on-failure
+
+      - name: Install
+        run: cmake --install build-release --config Release --prefix install

@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/bush_tasksTargets.cmake")
+
+check_required_components(bush_tasks)
