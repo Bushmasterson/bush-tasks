@@ -1,5 +1,5 @@
-#include "core.h"
 #include "cli.h"
+#include "core.h"
 
 #include <iostream>
 
@@ -7,32 +7,29 @@
 #include <windows.h>
 #endif
 
-int main()
-{
+int main() {
 #ifdef _WIN32
-    SetConsoleOutputCP(65001);
-    SetConsoleCP(65001);
+  SetConsoleOutputCP(65001);
+  SetConsoleCP(65001);
 #endif
 
-    const std::string filePath = "tasks.json";
-    auto tasks = bush_tasks::loadTasks(filePath);
+  const std::string filePath = "tasks.json";
+  auto tasks = bush_tasks::loadTasks(filePath);
 
-    while (true)
-    {
-        bush_tasks::renderHeader();
-        bush_tasks::renderTasks(tasks);
-        bush_tasks::renderHelp();
+  while (true) {
+    bush_tasks::renderHeader();
+    bush_tasks::renderTasks(tasks);
+    bush_tasks::renderHelp();
 
-        std::string input;
-        std::getline(std::cin, input);
+    std::string input;
+    std::getline(std::cin, input);
 
-        if (bush_tasks::handleCommand(input, tasks))
-        {
-            break;
-        }
-
-        bush_tasks::saveTasks(tasks, filePath);
+    if (bush_tasks::handleCommand(input, tasks)) {
+      break;
     }
 
-    return 0;
+    bush_tasks::saveTasks(tasks, filePath);
+  }
+
+  return 0;
 }
