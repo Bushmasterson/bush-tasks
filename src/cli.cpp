@@ -15,7 +15,7 @@ namespace bush_tasks
     {
         if (tasks.empty())
         {
-            std::cout << "Список задач пуст" << std::endl;
+            std::cout << "Tasks list is empty" << std::endl;
             return;
         }
 
@@ -23,7 +23,7 @@ namespace bush_tasks
         {
             const auto &task = tasks[i];
             std::cout << i + 1 << ". [" << task.status << "] [" << task.priority << "] "
-                       << task.text << " (создано: " << task.created << ")" << std::endl;
+                      << task.text << " (created: " << task.created << ")" << std::endl;
 
             for (size_t j = 0; j < task.subtasks.size(); ++j)
             {
@@ -35,8 +35,8 @@ namespace bush_tasks
     void renderHelp()
     {
         std::cout << "Commands: add <text>, del <text>, edit <number> <text>, "
-                   << "sub <number> <text>, priority <number> <low|medium|high|urgent>, "
-                   << "status <number> <done|postponed|pending>, done, tasks, clear, exit" << std::endl;
+                  << "sub <number> <text>, priority <number> <low|medium|high|urgent>, "
+                  << "status <number> <done|postponed|pending>, done, tasks, clear, exit" << std::endl;
     }
 
     bool handleCommand(const std::string &input, std::vector<Task> &tasks)
@@ -61,7 +61,7 @@ namespace bush_tasks
             task.status = "pending";
             tasks.push_back(task);
 
-            std::cout << "Задача добавлена" << std::endl;
+            std::cout << "Task added" << std::endl;
         }
         else if (command == "del")
         {
@@ -69,12 +69,12 @@ namespace bush_tasks
             iss >> index;
             if (index < 1 || index > static_cast<int>(tasks.size()))
             {
-                std::cout << "Неверный номер задачи" << std::endl;
+                std::cout << "Invalid task number" << std::endl;
             }
             else
             {
                 tasks.erase(tasks.begin() + index - 1);
-                std::cout << "Задача удалена" << std::endl;
+                std::cout << "Task deleted" << std::endl;
             }
         }
         else if (command == "edit")
@@ -83,7 +83,7 @@ namespace bush_tasks
             iss >> index;
             if (index < 1 || index > static_cast<int>(tasks.size()))
             {
-                std::cout << "Неверный номер задачи" << std::endl;
+                std::cout << "Invalid task number" << std::endl;
             }
             else
             {
@@ -95,12 +95,12 @@ namespace bush_tasks
 
                 if (argument.empty())
                 {
-                    std::cout << "Не указан новый текст задачи" << std::endl;
+                    std::cout << "No new task text specified" << std::endl;
                 }
                 else
                 {
                     tasks[index - 1].text = argument;
-                    std::cout << "Задача изменена" << std::endl;
+                    std::cout << "Task updated" << std::endl;
                 }
             }
         }
@@ -110,7 +110,7 @@ namespace bush_tasks
             iss >> index;
             if (index < 1 || index > static_cast<int>(tasks.size()))
             {
-                std::cout << "Неверный номер задачи" << std::endl;
+                std::cout << "Invalid task number" << std::endl;
             }
             else
             {
@@ -122,12 +122,12 @@ namespace bush_tasks
 
                 if (argument.empty())
                 {
-                    std::cout << "Не указан текст подзадачи" << std::endl;
+                    std::cout << "No subtask text specified" << std::endl;
                 }
                 else
                 {
                     tasks[index - 1].subtasks.push_back(argument);
-                    std::cout << "Подзадача добавлена" << std::endl;
+                    std::cout << "Subtask added" << std::endl;
                 }
             }
         }
@@ -140,16 +140,16 @@ namespace bush_tasks
 
             if (index < 1 || index > static_cast<int>(tasks.size()))
             {
-                std::cout << "Неверный номер задачи" << std::endl;
+                std::cout << "Invalid task number" << std::endl;
             }
             else if (level != "low" && level != "medium" && level != "high" && level != "urgent")
             {
-                std::cout << "Приоритет должен быть: low, medium, high или urgent" << std::endl;
+                std::cout << "Priority must be: low, medium, high or urgent" << std::endl;
             }
             else
             {
                 tasks[index - 1].priority = level;
-                std::cout << "Приоритет обновлён" << std::endl;
+                std::cout << "Priority updated" << std::endl;
             }
         }
         else if (command == "status")
@@ -161,22 +161,22 @@ namespace bush_tasks
 
             if (index < 1 || index > static_cast<int>(tasks.size()))
             {
-                std::cout << "Неверный номер задачи" << std::endl;
+                std::cout << "Invalid task number" << std::endl;
             }
             else if (newStatus != "done" && newStatus != "postponed" && newStatus != "pending")
             {
-                std::cout << "Статус должен быть: done, postponed или pending" << std::endl;
+                std::cout << "Status must be: done, postponed or pending" << std::endl;
             }
             else
             {
                 tasks[index - 1].status = newStatus;
-                std::cout << "Статус обновлён" << std::endl;
+                std::cout << "Status updated" << std::endl;
             }
         }
         else if (command == "clear")
         {
             tasks.clear();
-            std::cout << "Все задачи очищены" << std::endl;
+            std::cout << "All tasks cleared" << std::endl;
         }
         else if (command == "tasks")
         {
@@ -188,7 +188,7 @@ namespace bush_tasks
         }
         else
         {
-            std::cout << "Неизвестная команда" << std::endl;
+            std::cout << "Unknown command" << std::endl;
         }
 
         return false;
@@ -196,7 +196,7 @@ namespace bush_tasks
 
     void pause()
     {
-        std::cout << "Нажми любую клавишу для продолжения..." << std::endl;
+        std::cout << "Press any key to continue..." << std::endl;
         std::cin.get();
     }
 }

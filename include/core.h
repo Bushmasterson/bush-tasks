@@ -9,9 +9,9 @@ namespace bush_tasks
     {
         std::string text;
         std::vector<std::string> subtasks;
-        std::string priority; // low, medium, high, urgent
-        std::string created;  // dd.mm.yy
-        std::string status;   // done, postponed, pending
+        std::string priority;
+        std::string created;
+        std::string status;
     };
 
     std::string currentDate();

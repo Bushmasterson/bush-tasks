@@ -12,9 +12,7 @@ int main()
     std::remove(testFile.c_str());
 
     auto tasks = bush_tasks::loadTasks(testFile);
-
-    // Проверяем, что загрузка отсутствующего файла
-    // не приводит к ошибке.
+    
     assert(tasks.empty());
 
     std::remove(testFile.c_str());
