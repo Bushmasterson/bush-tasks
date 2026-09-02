@@ -5,16 +5,16 @@
 #include <iostream>
 #include <string>
 
-int main() {
+int main( ) {
   const std::string testFile = "test_tasks.json";
 
-  std::remove(testFile.c_str());
+  std::remove(testFile.c_str( ));
 
   auto tasks = bush_tasks::loadTasks(testFile);
 
-  assert(tasks.empty());
+  assert(tasks.empty( ));
 
-  std::remove(testFile.c_str());
+  std::remove(testFile.c_str( ));
 
   std::cout << "All tests passed.\n";
 

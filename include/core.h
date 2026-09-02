@@ -12,7 +12,7 @@ struct Task {
   std::string status;
 };
 
-std::string currentDate();
+std::string currentDate( );
 
 std::vector<Task> loadTasks(const std::string& filePath);
 void saveTasks(const std::vector<Task>& tasks, const std::string& filePath);

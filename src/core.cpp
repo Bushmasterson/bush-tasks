@@ -9,19 +9,19 @@
 using json = nlohmann::json;
 
 namespace bush_tasks {
-std::string currentDate() {
+std::string currentDate( ) {
   std::time_t t = std::time(nullptr);
   std::tm tm = *std::localtime(&t);
   std::ostringstream oss;
   oss << std::put_time(&tm, "%d.%m.%y");
-  return oss.str();
+  return oss.str( );
 }
 
 std::vector<Task> loadTasks(const std::string& filePath) {
   std::vector<Task> tasks;
   std::ifstream file(filePath);
 
-  if (!file.is_open()) {
+  if (!file.is_open( )) {
     return tasks;
   }
 
@@ -41,7 +41,7 @@ std::vector<Task> loadTasks(const std::string& filePath) {
 
     if (item.contains("subtasks")) {
       for (const auto& sub : item["subtasks"]) {
-        task.subtasks.push_back(sub.get<std::string>());
+        task.subtasks.push_back(sub.get<std::string>( ));
       }
     }
 
@@ -52,7 +52,7 @@ std::vector<Task> loadTasks(const std::string& filePath) {
 }
 
 void saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
-  json j = json::array();
+  json j = json::array( );
 
   for (const auto& task : tasks) {
     json item;
