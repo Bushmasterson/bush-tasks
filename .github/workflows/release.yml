@@ -11,70 +11,127 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       fail-fast: false
-
       matrix:
         include:
           - os: windows
             arch: x64
             runner: windows-latest
+            cmake_flags: ""
+            skip_tests: false
 
           - os: windows
             arch: x86
             runner: windows-latest
+            cmake_flags: "-A Win32"
+            skip_tests: false
 
           - os: windows
             arch: arm64
-            runner: windows-11-arm
+            runner: windows-latest
+            cmake_flags: "-A ARM64"
+            skip_tests: true
 
           - os: linux
             arch: x64
             runner: ubuntu-latest
+            cmake_flags: ""
+            apt_packages: ""
+            skip_tests: false
 
           - os: linux
             arch: x86
             runner: ubuntu-latest
+            cmake_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_EXE_LINKER_FLAGS=-m32"
+            apt_packages: "gcc-multilib g++-multilib"
+            skip_tests: false
 
           - os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
+            cmake_flags: ""
+            apt_packages: ""
+            skip_tests: false
 
           - os: linux
             arch: armv7
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-latest
+            cmake_flags: >-
+              -DCMAKE_SYSTEM_NAME=Linux
+              -DCMAKE_SYSTEM_PROCESSOR=armv7
+              -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc
+              -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+            apt_packages: "gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf"
+            skip_tests: true
+
+          - os: linux
+            arch: riscv64
+            runner: ubuntu-latest
+            cmake_flags: >-
+              -DCMAKE_SYSTEM_NAME=Linux
+              -DCMAKE_SYSTEM_PROCESSOR=riscv64
+              -DCMAKE_C_COMPILER=riscv64-linux-gnu-gcc
+              -DCMAKE_CXX_COMPILER=riscv64-linux-gnu-g++
+            apt_packages: "gcc-riscv64-linux-gnu g++-riscv64-linux-gnu"
+            skip_tests: true
 
           - os: macos
             arch: arm64
             runner: macos-latest
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
+            skip_tests: false
 
-    runs-on: ${{ matrix.runner }}
+          - os: macos
+            arch: x64
+            runner: macos-latest
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            skip_tests: false
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install cross-compiler (Linux)
+        if: matrix.os == 'linux' && matrix.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt_packages }}
+
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON ${{ matrix.cmake_flags }}
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Test
+        if: matrix.skip_tests != true
         run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Install
         run: cmake --install build --config Release --prefix install
 
-      - name: Package
+      - name: Prepare binary
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "windows" ]; then
-            7z a "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.zip" ./install/*
+            EXT=".exe"
           else
-            tar -czf "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" -C install .
+            EXT=""
           fi
+
+          SRC=$(find install -type f -name "bush_tasks${EXT}" | head -n1)
+          if [ -z "$SRC" ]; then
+            echo "::error::bush_tasks${EXT} not found under install/ — check CMAKE install layout"
+            exit 1
+          fi
+
+          OUT="bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+          cp "$SRC" "$OUT"
+          chmod +x "$OUT" || true
+          echo "ASSET=$OUT" >> "$GITHUB_ENV"
 
       - name: Create or update Release
         if: success()
@@ -89,12 +146,4 @@ jobs:
               --generate-notes
           fi
 
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            gh release upload "$TAG" \
-              "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.zip" \
-              --clobber
-          else
-            gh release upload "$TAG" \
-              "bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" \
-              --clobber
-          fi
+          gh release upload "$TAG" "$ASSET" --clobber
