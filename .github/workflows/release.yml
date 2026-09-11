@@ -18,62 +18,15 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROJECT_NAME: bush-tasks
   LLVM_MINGW_VERSION: "20240917"
   MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
-  # ==================================================================
-  # Guard - fail fast before any heavy work
-  # ==================================================================
-  guard:
-    name: Guard
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    outputs:
-      tag: ${{ steps.validate.outputs.tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve and validate tag
-        id: validate
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          else
-            TAG="${{ github.ref_name }}"
-          fi
-          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Tag '$TAG' does not match vX.Y.Z"
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: $TAG"
-
-      - name: Ensure tag exists in repository
-        run: |
-          TAG="${{ steps.validate.outputs.tag }}"
-          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "::error::Tag '$TAG' does not exist in the repository. Create it first."
-            exit 1
-          fi
-
-      - name: Verify gh CLI authentication
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth status
-
-  # ==================================================================
+  # ================================================================
   # Build data - single source of truth
-  # ==================================================================
+  # ================================================================
   build_data:
     name: Generate build data
-    needs: guard
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -84,10 +37,27 @@ jobs:
       short_sha: ${{ steps.data.outputs.short_sha }}
       build_date: ${{ steps.data.outputs.build_date }}
     steps:
-      - name: Compute metadata
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve and validate tag
         id: data
         run: |
-          TAG="${{ needs.guard.outputs.tag }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag '$TAG' does not match vX.Y.Z"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' does not exist in the repository."
+            exit 1
+          fi
           VERSION="${TAG#v}"
           SHORT_SHA="${GITHUB_SHA::7}"
           BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
@@ -104,12 +74,12 @@ jobs:
             echo "- date: \`$BUILD_DATE\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ==================================================================
+  # ================================================================
   # Tests - gate before release
-  # ==================================================================
+  # ================================================================
   test:
     name: Run tests
-    needs: [guard, build_data]
+    needs: build_data
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -130,12 +100,12 @@ jobs:
       - name: Run CTest
         run: ctest --test-dir build --output-on-failure
 
-  # ==================================================================
-  # Prepare release - creates GitHub Release if tests passed
-  # ==================================================================
+  # ================================================================
+  # Prepare release - create GitHub Release
+  # ================================================================
   prepare_release:
     name: Create GitHub Release
-    needs: [guard, build_data, test]
+    needs: [build_data, test]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -146,9 +116,11 @@ jobs:
         if: needs.test.result != 'success'
         run: |
           echo "::warning::Tests did not pass (result: ${{ needs.test.result }}). Release will not be created."
-          echo "### Release creation skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Tests result: \`${{ needs.test.result }}\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Release creation skipped"
+            echo ""
+            echo "Tests result: \`${{ needs.test.result }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout
         if: needs.test.result == 'success'
@@ -171,9 +143,9 @@ jobs:
               --generate-notes
           fi
 
-  # ==================================================================
+  # ================================================================
   # Build matrix - 9 independent targets
-  # ==================================================================
+  # ================================================================
   build:
     name: Build (${{ matrix.name }})
     needs: [build_data, prepare_release]
@@ -219,7 +191,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- Toolchain installation ---
       - name: Install toolchain (linux-amd64)
         if: matrix.name == 'linux-amd64'
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
@@ -273,7 +244,6 @@ jobs:
         if: startsWith(matrix.name, 'macos-')
         run: which ninja || brew install ninja
 
-      # --- Build ---
       - name: Build (linux-amd64)
         if: matrix.name == 'linux-amd64'
         run: |
@@ -373,7 +343,6 @@ jobs:
             -DBUSH_TASKS_BUILD_CLI=ON
           cmake --build build -j
 
-      # --- Strip / package / verify ---
       - name: Strip binary (macOS)
         if: startsWith(matrix.name, 'macos-')
         run: strip -x build/bush-tasks || true
@@ -382,27 +351,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           case "${{ matrix.name }}" in
             windows-*) SRC="build/bush-tasks.exe" ;;
             *)         SRC="build/bush-tasks" ;;
           esac
           DST="${{ matrix.artifact }}"
-
           if [ ! -f "$SRC" ]; then
             echo "::error::Binary '$SRC' was not produced."
             ls -la build || true
             exit 1
           fi
-
           cp "$SRC" "$DST"
-
           SIZE=$(wc -c < "$DST")
           if [ "$SIZE" -lt 1024 ]; then
             echo "::error::Artifact '$DST' is suspiciously small ($SIZE bytes)."
             exit 1
           fi
-
           echo "Packaged: $DST ($SIZE bytes)"
 
       - name: Upload workflow artifact
@@ -413,7 +377,6 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      # --- Publish (skip macOS - universal is built later) ---
       - name: Upload to release
         if: ${{ !startsWith(matrix.name, 'macos-') }}
         shell: bash
@@ -425,9 +388,9 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # ==================================================================
+  # ================================================================
   # macOS Universal - merge x86_64 + arm64
-  # ==================================================================
+  # ================================================================
   macos_universal:
     name: macOS Universal
     needs: [build_data, build]
@@ -437,15 +400,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check macOS build results
-        id: check
-        run: |
-          AMD_RESULT="${{ needs.build.result }}"
-          echo "Build matrix result: $AMD_RESULT"
-          if [ "$AMD_RESULT" != "success" ]; then
-            echo "::warning::Build matrix did not fully succeed. macOS universal may be incomplete."
-          fi
-
       - name: Download macOS binaries
         id: download
         continue-on-error: true
@@ -466,11 +420,8 @@ jobs:
           if [ ! -s "$AMD" ] || [ ! -s "$ARM" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Cannot build universal binary - one or both macOS builds are missing."
-            echo "amd present: $([ -s "$AMD" ] && echo yes || echo no)"
-            echo "arm present: $([ -s "$ARM" ] && echo yes || echo no)"
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "Both macOS binaries present, ready to merge."
           fi
 
       - name: Create universal binary
@@ -513,13 +464,15 @@ jobs:
       - name: Skip notice
         if: steps.verify_inputs.outputs.present != 'true'
         run: |
-          echo "### macOS Universal skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "One or both macOS binaries were missing. Universal binary was not created." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### macOS Universal skipped"
+            echo ""
+            echo "One or both macOS binaries were missing. Universal binary was not created."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  # ==================================================================
-  # Verify release - checksums + asset presence
-  # ==================================================================
+  # ================================================================
+  # Verify release - checksums and asset presence
+  # ================================================================
   verify_release:
     name: Verify release assets
     needs: [build_data, build, macos_universal]
@@ -574,7 +527,7 @@ jobs:
             done
             echo ""
             echo "Present: $PRESENT, Missing: $MISSING"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate SHA256SUMS.txt
         run: |
@@ -585,7 +538,6 @@ jobs:
             cat SHA256SUMS.txt
           else
             echo "::warning::No assets to checksum"
-            exit 0
           fi
 
       - name: Upload SHA256SUMS.txt
@@ -598,9 +550,9 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # ==================================================================
+  # ================================================================
   # Regenerate CHANGELOG.md
-  # ==================================================================
+  # ================================================================
   changelog:
     name: Regenerate CHANGELOG.md
     needs: [build_data, verify_release]
