@@ -9,9 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# =========================
 # Library
-# =========================
 
 add_library(bush_tasks
     src/core.cpp
@@ -26,6 +24,7 @@ target_include_directories(bush_tasks
 # =========================
 # Tests
 # =========================
+
 
 include(CTest)
 

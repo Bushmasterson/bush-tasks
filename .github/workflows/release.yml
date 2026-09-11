@@ -3,147 +3,236 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  build:
-    name: Build ${{ matrix.os }}-${{ matrix.arch }}
-    runs-on: ${{ matrix.runner }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows
-            arch: x64
-            runner: windows-latest
-            cmake_flags: ""
-            skip_tests: false
-
-          - os: windows
-            arch: x86
-            runner: windows-latest
-            cmake_flags: "-A Win32"
-            skip_tests: false
-
-          - os: windows
-            arch: arm64
-            runner: windows-latest
-            cmake_flags: "-A ARM64"
-            skip_tests: true
-
-          - os: linux
-            arch: x64
-            runner: ubuntu-latest
-            cmake_flags: ""
-            apt_packages: ""
-            skip_tests: false
-
-          - os: linux
-            arch: x86
-            runner: ubuntu-latest
-            cmake_flags: "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_EXE_LINKER_FLAGS=-m32"
-            apt_packages: "gcc-multilib g++-multilib"
-            skip_tests: false
-
-          - os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-            cmake_flags: ""
-            apt_packages: ""
-            skip_tests: false
-
-          - os: linux
-            arch: armv7
-            runner: ubuntu-latest
-            cmake_flags: >-
-              -DCMAKE_SYSTEM_NAME=Linux
-              -DCMAKE_SYSTEM_PROCESSOR=armv7
-              -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc
-              -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
-            apt_packages: "gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf"
-            skip_tests: true
-
-          - os: linux
-            arch: riscv64
-            runner: ubuntu-latest
-            cmake_flags: >-
-              -DCMAKE_SYSTEM_NAME=Linux
-              -DCMAKE_SYSTEM_PROCESSOR=riscv64
-              -DCMAKE_C_COMPILER=riscv64-linux-gnu-gcc
-              -DCMAKE_CXX_COMPILER=riscv64-linux-gnu-g++
-            apt_packages: "gcc-riscv64-linux-gnu g++-riscv64-linux-gnu"
-            skip_tests: true
-
-          - os: macos
-            arch: arm64
-            runner: macos-latest
-            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64"
-            skip_tests: false
-
-          - os: macos
-            arch: x64
-            runner: macos-latest
-            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
-            skip_tests: false
-
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install cross-compiler (Linux)
-        if: matrix.os == 'linux' && matrix.apt_packages != ''
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+
+      - name: Configure & build tests
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt_packages }}
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUSH_TASKS_BUILD_TESTS=ON
+          cmake --build build --target test_core -j
 
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON ${{ matrix.cmake_flags }}
+      - name: Run tests
+        run: ./build/tests/test_core
 
-      - name: Build
-        run: cmake --build build --config Release
+  prepare-release:
+    name: Create GitHub Release
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve_tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Test
-        if: matrix.skip_tests != true
-        run: ctest --test-dir build -C Release --output-on-failure
-
-      - name: Install
-        run: cmake --install build --config Release --prefix install
-
-      - name: Prepare binary
-        shell: bash
+      - name: Resolve tag
+        id: resolve_tag
         run: |
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            EXT=".exe"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
           else
-            EXT=""
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
-          SRC=$(find install -type f -name "bush_tasks${EXT}" | head -n1)
-          if [ -z "$SRC" ]; then
-            echo "::error::bush_tasks${EXT} not found under install/ — check CMAKE install layout"
-            exit 1
-          fi
-
-          OUT="bush_tasks-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
-          cp "$SRC" "$OUT"
-          chmod +x "$OUT" || true
-          echo "ASSET=$OUT" >> "$GITHUB_ENV"
-
-      - name: Create or update Release
-        if: success()
-        shell: bash
+      - name: Create release (published, with auto-generated notes)
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
+          TAG="${{ steps.resolve_tag.outputs.tag }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Релиз $TAG уже существует, пропускаю создание"
+          else
             gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
               --title "$TAG" \
               --generate-notes
           fi
 
-          gh release upload "$TAG" "$ASSET" --clobber
+  build:
+    name: Build (${{ matrix.name }})
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-amd64
+          - name: linux-i686
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-i686
+          - name: linux-arm64
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-arm64
+          - name: linux-armv7
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-armv7
+          - name: windows-amd64
+            os: windows-latest
+            artifact: bush-tasks-windows-amd64.exe
+          - name: windows-x86
+            os: windows-latest
+            artifact: bush-tasks-windows-x86.exe
+          - name: windows-arm64
+            os: ubuntu-latest
+            artifact: bush-tasks-windows-arm64.exe
+          - name: macos-amd64
+            os: macos-latest
+            artifact: bush-tasks-macos-amd64
+          - name: macos-arm64
+            os: macos-latest
+            artifact: bush-tasks-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux toolchain (amd64)
+        if: matrix.name == 'linux-amd64'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+
+      - name: Install Linux toolchain (i686)
+        if: matrix.name == 'linux-i686'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake g++-multilib
+
+      - name: Install Linux toolchain (arm64)
+        if: matrix.name == 'linux-arm64'
+        run: sudo apt-get update && sudo apt-get install -y cmake g++-aarch64-linux-gnu
+
+      - name: Install Linux toolchain (armv7)
+        if: matrix.name == 'linux-armv7'
+        run: sudo apt-get update && sudo apt-get install -y cmake g++-arm-linux-gnueabihf
+
+      - name: Build (Linux amd64)
+        if: matrix.name == 'linux-amd64'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Build (Linux i686)
+        if: matrix.name == 'linux-i686'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_C_FLAGS=-m32 -DCMAKE_EXE_LINKER_FLAGS=-m32
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Build (Linux arm64, cross)
+        if: matrix.name == 'linux-arm64'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Build (Linux armv7, cross)
+        if: matrix.name == 'linux-armv7'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=arm \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Setup MSYS2 (UCRT64, amd64)
+        if: matrix.name == 'windows-amd64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+
+      - name: Build (Windows amd64)
+        if: matrix.name == 'windows-amd64'
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          cp build/bush-tasks.exe ${{ matrix.artifact }}
+
+      - name: Setup MSYS2 (MINGW32, x86)
+        if: matrix.name == 'windows-x86'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          install: mingw-w64-i686-toolchain mingw-w64-i686-cmake mingw-w64-i686-ninja
+
+      - name: Build (Windows x86)
+        if: matrix.name == 'windows-x86'
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          cp build/bush-tasks.exe ${{ matrix.artifact }}
+
+      - name: Install llvm-mingw (windows-arm64 cross)
+        if: matrix.name == 'windows-arm64'
+        run: |
+          curl -L -o llvm-mingw.tar.xz \
+            https://github.com/mstorsjo/llvm-mingw/releases/latest/download/llvm-mingw-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw.tar.xz
+          echo "$PWD/$(tar -tf llvm-mingw.tar.xz | head -1 | cut -f1 -d/)/bin" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: Build (Windows arm64, cross)
+        if: matrix.name == 'windows-arm64'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 \
+            -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
+            -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++
+          cmake --build build -j
+          cp build/bush-tasks.exe ${{ matrix.artifact }}
+
+      - name: Install cmake (macOS)
+        if: matrix.name == 'macos-amd64' || matrix.name == 'macos-arm64'
+        run: brew install cmake
+
+      - name: Build (macOS amd64, cross via -arch)
+        if: matrix.name == 'macos-amd64'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Build (macOS arm64, native)
+        if: matrix.name == 'macos-arm64'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build build -j
+          cp build/bush-tasks ${{ matrix.artifact }}
+
+      - name: Upload artifact to release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.prepare-release.outputs.tag }}" \
+            "${{ matrix.artifact }}" \
+            --repo "${{ github.repository }}" \
+            --clobber
