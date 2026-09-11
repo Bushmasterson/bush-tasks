@@ -51,6 +51,7 @@ endfunction()
 # ─────────────────────────────────────────────
 add_library(bush_tasks
     src/core.cpp
+    src/cli.cpp
 )
 add_library(bush_tasks::bush_tasks ALIAS bush_tasks)
 
