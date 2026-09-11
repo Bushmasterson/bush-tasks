@@ -13,10 +13,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref_name }}
-  cancel-in-progress: true
-
 env:
   LLVM_MINGW_VERSION: "20240917"
   MACOS_X86_64_MIN: "10.13"
