@@ -174,7 +174,7 @@ jobs:
             artifact: bush-tasks-windows-arm64.exe
             smoke: false
           - name: macos-amd64
-            os: macos-13
+            os: macos-14
             artifact: bush-tasks-macos-amd64
             smoke: true
           - name: macos-arm64
