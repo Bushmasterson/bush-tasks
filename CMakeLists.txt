@@ -1,14 +1,17 @@
 cmake_minimum_required(VERSION 3.20)
 
+if(DEFINED BUSH_TASKS_VERSION AND NOT BUSH_TASKS_VERSION STREQUAL "")
+    set(_BUSH_TASKS_VERSION "${BUSH_TASKS_VERSION}")
+else()
+    set(_BUSH_TASKS_VERSION "1.0.0")
+endif()
+
 project(bush_tasks
-    VERSION 1.0.0
+    VERSION ${_BUSH_TASKS_VERSION}
     DESCRIPTION "Bush Tasks"
     LANGUAGES CXX
 )
 
-# ─────────────────────────────────────────────
-# Global settings
-# ─────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -17,17 +20,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# ─────────────────────────────────────────────
-# Options
-# ─────────────────────────────────────────────
-option(BUSH_TASKS_BUILD_CLI "Build the bush-tasks CLI executable" ON)
-option(BUSH_TASKS_BUILD_TESTS "Build the unit tests" OFF)
-option(BUSH_TASKS_STATIC "Link the CLI statically (where supported)" OFF)
-option(BUSH_TASKS_STRIP "Strip release binaries (GCC/Clang)" ON)
+option(BUSH_TASKS_BUILD_CLI   "Build the bush-tasks CLI executable"       ON)
+option(BUSH_TASKS_BUILD_TESTS "Build the unit tests"                      OFF)
+option(BUSH_TASKS_STATIC      "Link the CLI statically (where supported)" OFF)
+option(BUSH_TASKS_STRIP       "Strip release binaries (GCC/Clang)"        ON)
 
-# ─────────────────────────────────────────────
-# Common target settings
-# ─────────────────────────────────────────────
 function(bush_tasks_common_settings target)
     target_compile_features(${target} PUBLIC cxx_std_17)
 
@@ -46,9 +43,12 @@ function(bush_tasks_common_settings target)
     endif()
 endfunction()
 
-# ─────────────────────────────────────────────
-# Library
-# ─────────────────────────────────────────────
+configure_file(
+    ${PROJECT_SOURCE_DIR}/include/bush_tasks_version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/bush_tasks_version.h
+    @ONLY
+)
+
 add_library(bush_tasks
     src/core.cpp
     src/cli.cpp
@@ -58,14 +58,12 @@ add_library(bush_tasks::bush_tasks ALIAS bush_tasks)
 target_include_directories(bush_tasks
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 bush_tasks_common_settings(bush_tasks)
 
-# ─────────────────────────────────────────────
-# CLI executable
-# ─────────────────────────────────────────────
 if(BUSH_TASKS_BUILD_CLI)
     add_executable(bush-tasks src/main.cpp)
     target_link_libraries(bush-tasks PRIVATE bush_tasks)
@@ -96,9 +94,6 @@ if(BUSH_TASKS_BUILD_CLI)
     endif()
 endif()
 
-# ─────────────────────────────────────────────
-# Tests
-# ─────────────────────────────────────────────
 if(BUSH_TASKS_BUILD_TESTS)
     enable_testing()
 
@@ -114,9 +109,6 @@ if(BUSH_TASKS_BUILD_TESTS)
     )
 endif()
 
-# ─────────────────────────────────────────────
-# Install
-# ─────────────────────────────────────────────
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -137,6 +129,12 @@ endif()
 
 install(
     DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    PATTERN "*.in" EXCLUDE
+)
+
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/include/bush_tasks_version.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 

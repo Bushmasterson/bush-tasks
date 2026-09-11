@@ -23,9 +23,6 @@ env:
   MACOS_ARM64_MIN: "11.0"
 
 jobs:
-  # ================================================================
-  # Build data - single source of truth
-  # ================================================================
   build_data:
     name: Generate build data
     runs-on: ubuntu-latest
@@ -66,10 +63,17 @@ jobs:
           echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA"   >> "$GITHUB_OUTPUT"
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Build metadata"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| tag | \`$TAG\` |"
+            echo "| version | \`$VERSION\` |"
+            echo "| commit | \`$SHORT_SHA\` |"
+            echo "| date | \`$BUILD_DATE\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  # ================================================================
-  # Tests
-  # ================================================================
   test:
     name: Run tests
     needs: build_data
@@ -85,17 +89,18 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
 
       - name: Configure CMake
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUSH_TASKS_BUILD_TESTS=ON
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
+            -DBUSH_TASKS_BUILD_TESTS=ON
 
-      - name: Build tests
+      - name: Build
         run: cmake --build build -j
 
       - name: Run CTest
         run: ctest --test-dir build --output-on-failure
 
-  # ================================================================
-  # Prepare release
-  # ================================================================
   prepare_release:
     name: Create GitHub Release
     needs: [build_data, test]
@@ -131,9 +136,6 @@ jobs:
               --generate-notes
           fi
 
-  # ================================================================
-  # Build matrix
-  # ================================================================
   build:
     name: Build (${{ matrix.name }})
     needs: [build_data, prepare_release]
@@ -141,6 +143,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -148,30 +152,39 @@ jobs:
           - name: linux-amd64
             os: ubuntu-latest
             artifact: bush-tasks-linux-amd64
+            smoke: true
           - name: linux-i686
             os: ubuntu-latest
             artifact: bush-tasks-linux-i686
+            smoke: false
           - name: linux-arm64
             os: ubuntu-latest
             artifact: bush-tasks-linux-arm64
+            smoke: false
           - name: linux-armv7
             os: ubuntu-latest
             artifact: bush-tasks-linux-armv7
+            smoke: false
           - name: windows-amd64
             os: windows-latest
             artifact: bush-tasks-windows-amd64.exe
+            smoke: false
           - name: windows-x86
             os: windows-latest
             artifact: bush-tasks-windows-x86.exe
+            smoke: false
           - name: windows-arm64
             os: ubuntu-latest
             artifact: bush-tasks-windows-arm64.exe
+            smoke: false
           - name: macos-amd64
             os: macos-13
             artifact: bush-tasks-macos-amd64
+            smoke: true
           - name: macos-arm64
             os: macos-14
             artifact: bush-tasks-macos-arm64
+            smoke: true
 
     runs-on: ${{ matrix.os }}
 
@@ -237,6 +250,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DBUSH_TASKS_BUILD_CLI=ON \
             -DBUSH_TASKS_STATIC=ON
           cmake --build build -j
@@ -246,6 +260,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_C_FLAGS=-m32 \
             -DCMAKE_CXX_FLAGS=-m32 \
             -DCMAKE_EXE_LINKER_FLAGS=-m32 \
@@ -257,6 +272,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
@@ -270,6 +286,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=armv7 \
             -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
@@ -284,6 +301,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DBUSH_TASKS_BUILD_CLI=ON \
             -DBUSH_TASKS_STATIC=ON
           cmake --build build
@@ -294,6 +312,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DBUSH_TASKS_BUILD_CLI=ON \
             -DBUSH_TASKS_STATIC=ON
           cmake --build build
@@ -303,6 +322,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_SYSTEM_NAME=Windows \
             -DCMAKE_SYSTEM_PROCESSOR=ARM64 \
             -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
@@ -316,6 +336,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_X86_64_MIN} \
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF \
@@ -327,6 +348,7 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_ARM64_MIN} \
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF \
@@ -337,15 +359,43 @@ jobs:
         if: startsWith(matrix.name, 'macos-')
         run: strip -x build/bush-tasks || true
 
-      - name: Verify macOS slice (min OS version)
-        if: startsWith(matrix.name, 'macos-')
+      - name: Smoke test
+        if: matrix.smoke
+        shell: bash
         run: |
           set -euo pipefail
-          BIN="build/bush-tasks"
-          echo "=== otool -l (build version) ==="
-          otool -l "$BIN" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
-          echo "=== file ==="
-          file "$BIN"
+          SRC="build/bush-tasks"
+          echo "=== $SRC --version ==="
+          "$SRC" --version
+          echo ""
+          echo "=== $SRC --help ==="
+          "$SRC" --help
+
+      - name: Inspect binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.name }}" in
+            windows-*) SRC="build/bush-tasks.exe" ;;
+            *)         SRC="build/bush-tasks" ;;
+          esac
+          if [ ! -f "$SRC" ]; then
+            echo "::error::Binary '$SRC' not found"
+            ls -la build || true
+            exit 1
+          fi
+          SIZE=$(wc -c < "$SRC")
+          echo "Size: $SIZE bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Binary suspiciously small"
+            exit 1
+          fi
+          if command -v file >/dev/null 2>&1; then
+            file "$SRC" || true
+          fi
+          if command -v otool >/dev/null 2>&1; then
+            otool -l "$SRC" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          fi
 
       - name: Package artifact
         shell: bash
@@ -355,29 +405,42 @@ jobs:
             windows-*) SRC="build/bush-tasks.exe" ;;
             *)         SRC="build/bush-tasks" ;;
           esac
-          DST="${{ matrix.artifact }}"
-          if [ ! -f "$SRC" ]; then
-            echo "::error::Binary '$SRC' was not produced."
-            ls -la build || true
-            exit 1
-          fi
-          cp "$SRC" "$DST"
-          SIZE=$(wc -c < "$DST")
-          if [ "$SIZE" -lt 1024 ]; then
-            echo "::error::Artifact '$DST' is suspiciously small ($SIZE bytes)."
-            exit 1
-          fi
-          echo "Packaged: $DST ($SIZE bytes)"
+          cp "$SRC" "${{ matrix.artifact }}"
+          ls -la "${{ matrix.artifact }}"
 
-      - name: Upload workflow artifact
+      - name: Generate SBOM (Syft)
+        continue-on-error: true
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./${{ matrix.artifact }}
+          format: spdx-json
+          output-file: ${{ matrix.artifact }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: ${{ matrix.artifact }}
+
+      - name: Upload workflow artifact (binary)
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: ${{ matrix.name }}-bin
           path: ${{ matrix.artifact }}
           retention-days: 14
           if-no-files-found: error
 
-      - name: Upload to release
+      - name: Upload workflow artifact (SBOM)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-sbom
+          path: ${{ matrix.artifact }}.spdx.json
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload to release (binary)
         if: ${{ !startsWith(matrix.name, 'macos-') }}
         shell: bash
         env:
@@ -388,9 +451,17 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # ================================================================
-  # macOS Universal - merge x86_64 + arm64 into a fat binary
-  # ================================================================
+      - name: Upload to release (SBOM)
+        if: ${{ !startsWith(matrix.name, 'macos-') && hashFiles(format('{0}.spdx.json', matrix.artifact)) != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
+            "${{ matrix.artifact }}.spdx.json" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
   macos_universal:
     name: macOS Universal
     needs: [build_data, build]
@@ -399,13 +470,15 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download macOS binaries
         id: download
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          pattern: macos-*
+          pattern: macos-*-bin
           merge-multiple: true
           path: macos-binaries
 
@@ -419,7 +492,7 @@ jobs:
           ARM="macos-binaries/bush-tasks-macos-arm64"
           if [ ! -s "$AMD" ] || [ ! -s "$ARM" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Cannot build universal binary - one or both macOS builds are missing."
+            echo "::warning::Cannot build universal - one or both macOS builds missing."
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
@@ -428,15 +501,11 @@ jobs:
         if: steps.verify_inputs.outputs.present == 'true'
         run: |
           set -euo pipefail
-          echo "=== x86_64 slice ==="
-          lipo -info macos-binaries/bush-tasks-macos-amd64
-          file macos-binaries/bush-tasks-macos-amd64
-          otool -l macos-binaries/bush-tasks-macos-amd64 | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
-          echo ""
-          echo "=== arm64 slice ==="
-          lipo -info macos-binaries/bush-tasks-macos-arm64
-          file macos-binaries/bush-tasks-macos-arm64
-          otool -l macos-binaries/bush-tasks-macos-arm64 | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          for f in macos-binaries/bush-tasks-macos-amd64 macos-binaries/bush-tasks-macos-arm64; do
+            echo "=== $f ==="
+            lipo -info "$f"
+            otool -l "$f" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          done
 
       - name: Create universal binary
         if: steps.verify_inputs.outputs.present == 'true'
@@ -455,28 +524,47 @@ jobs:
           BIN="bush-tasks-macos-universal"
           SIZE=$(wc -c < "$BIN")
           if [ "$SIZE" -lt 1024 ]; then
-            echo "::error::Universal binary is suspiciously small ($SIZE bytes)."
+            echo "::error::Universal binary suspiciously small ($SIZE bytes)"
             exit 1
           fi
           ARCHS=$(lipo -archs "$BIN")
           echo "Architectures: $ARCHS"
           echo "$ARCHS" | grep -q "x86_64" || { echo "::error::Missing x86_64"; exit 1; }
           echo "$ARCHS" | grep -q "arm64"  || { echo "::error::Missing arm64";  exit 1; }
-
-          echo "=== per-slice minimum OS versions ==="
           otool -l "$BIN" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          echo "OK: $SIZE bytes, $ARCHS"
 
-          echo "=== file ==="
-          file "$BIN"
-          echo "OK: universal binary built ($SIZE bytes, $ARCHS)"
+      - name: Smoke test universal
+        if: steps.verify_inputs.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          ./bush-tasks-macos-universal --version
+          ./bush-tasks-macos-universal --help
 
-      - name: Ad-hoc code sign (optional but helps on some Macs)
+      - name: Ad-hoc code sign
         if: steps.verify_inputs.outputs.present == 'true'
         run: |
           codesign --force --sign - bush-tasks-macos-universal || true
-          codesign -dv bush-tasks-macos-universal 2>&1 | head -20 || true
 
-      - name: Upload to release
+      - name: Generate SBOM (Syft) for universal
+        if: steps.verify_inputs.outputs.present == 'true'
+        continue-on-error: true
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./bush-tasks-macos-universal
+          format: spdx-json
+          output-file: bush-tasks-macos-universal.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Attest universal binary
+        if: steps.verify_inputs.outputs.present == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: bush-tasks-macos-universal
+
+      - name: Upload to release (universal)
         if: steps.verify_inputs.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -486,21 +574,71 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
+      - name: Upload to release (universal SBOM)
+        if: steps.verify_inputs.outputs.present == 'true' && hashFiles('bush-tasks-macos-universal.spdx.json') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
+            bush-tasks-macos-universal.spdx.json \
+            --repo "${{ github.repository }}" \
+            --clobber
+
       - name: Skip notice
         if: steps.verify_inputs.outputs.present != 'true'
         run: |
           {
             echo "### macOS Universal skipped"
             echo ""
-            echo "One or both macOS binaries were missing. Universal binary was not created."
+            echo "One or both macOS binaries were missing."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ================================================================
-  # Verify release - checksums and asset presence
-  # ================================================================
+  source_tarball:
+    name: Source tarball
+    needs: [build_data, prepare_release]
+    if: always() && needs.prepare_release.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tarball
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.build_data.outputs.tag }}"
+          VERSION="${{ needs.build_data.outputs.version }}"
+          PREFIX="bush-tasks-${VERSION}/"
+          FILE="bush-tasks-${VERSION}-src.tar.gz"
+          git archive --format=tar.gz --prefix="$PREFIX" -o "$FILE" "$TAG"
+          ls -la "$FILE"
+          sha256sum "$FILE" > "$FILE.sha256"
+
+      - name: Attest source tarball
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: bush-tasks-*-src.tar.gz
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.build_data.outputs.tag }}"
+          gh release upload "$TAG" \
+            bush-tasks-*-src.tar.gz \
+            bush-tasks-*-src.tar.gz.sha256 \
+            --repo "${{ github.repository }}" \
+            --clobber
+
   verify_release:
     name: Verify release assets
-    needs: [build_data, build, macos_universal]
+    needs: [build_data, build, macos_universal, source_tarball]
     if: always()
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -561,8 +699,6 @@ jobs:
           if ls bush-tasks-* >/dev/null 2>&1; then
             sha256sum bush-tasks-* > SHA256SUMS.txt
             cat SHA256SUMS.txt
-          else
-            echo "::warning::No assets to checksum"
           fi
 
       - name: Upload SHA256SUMS.txt
@@ -575,9 +711,6 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # ================================================================
-  # Regenerate CHANGELOG.md
-  # ================================================================
   changelog:
     name: Regenerate CHANGELOG.md
     needs: [build_data, verify_release]
@@ -594,7 +727,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Rebuild CHANGELOG.md from all releases
+      - name: Rebuild CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -619,4 +752,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: regenerate CHANGELOG.md"
-          git push origin main || echo "::warning::Failed to push CHANGELOG.md (branch protection?)"
+          git push origin main || echo "::warning::Failed to push CHANGELOG.md"
