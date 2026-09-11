@@ -37,87 +37,155 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Install toolchain (linux-amd64)
-        if: matrix.name == 'linux-amd64'
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
-
-      - name: Install toolchain (linux-i686)
-        if: matrix.name == 'linux-i686'
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build g++-multilib
-
-      - name: Install toolchain (linux-arm64)
-        if: matrix.name == 'linux-arm64'
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++-aarch64-linux-gnu
-
-      - name: Install toolchain (linux-armv7)
-        if: matrix.name == 'linux-armv7'
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++-arm-linux-gnueabihf
-
-      - name: Setup MSYS2 (windows-amd64)
-        if: matrix.name == 'windows-amd64'
-        uses: msys2/setup-msys2@v2
+  prepare_release:
+    name: Create GitHub Release
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve_tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
+          fetch-depth: 0
 
-      - name: Setup MSYS2 (windows-x86)
-        if: matrix.name == 'windows-x86'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW32
-          update: true
-          install: >-
-            mingw-w64-i686-gcc
-            mingw-w64-i686-cmake
-            mingw-w64-i686-ninja
-
-      - name: Install toolchain (windows-arm64 / llvm-mingw)
-        if: matrix.name == 'windows-arm64'
+      - name: Resolve tag
+        id: resolve_tag
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build curl xz-utils
-          LLVM_MINGW_VERSION=20240917
-          curl -fsSL -o /tmp/llvm-mingw.tar.xz \
-            "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz"
-          sudo mkdir -p /opt/llvm-mingw
-          sudo tar -xf /tmp/llvm-mingw.tar.xz -C /opt/llvm-mingw --strip-components=1
-          echo "/opt/llvm-mingw/bin" >> "$GITHUB_PATH"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Install toolchain (macOS)
-        if: startsWith(matrix.name, 'macos-')
-        run: brew install ninja || true
+      - name: Create release (published, with auto-generated notes)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.resolve_tag.outputs.tag }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping creation."
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --generate-notes
+          fi
 
-      - name: Strip binary (macOS)
-        if: startsWith(matrix.name, 'macos-')
-        run: strip -x "${{ matrix.binary }}" || true
+  build:
+    name: Build (${{ matrix.name }})
+    needs: prepare_release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-amd64
+          - name: linux-i686
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-i686
+          - name: linux-arm64
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-arm64
+          - name: linux-armv7
+            os: ubuntu-latest
+            artifact: bush-tasks-linux-armv7
+          - name: windows-amd64
+            os: windows-latest
+            artifact: bush-tasks-windows-amd64.exe
+          - name: windows-x86
+            os: windows-latest
+            artifact: bush-tasks-windows-x86.exe
+          - name: windows-arm64
+            os: ubuntu-latest
+            artifact: bush-tasks-windows-arm64.exe
+          - name: macos-amd64
+            os: macos-13
+            artifact: bush-tasks-macos-amd64
+          - name: macos-arm64
+            os: macos-14
+            artifact: bush-tasks-macos-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+        run: strip -x build/bush-tasks || true
 
       - name: Package artifact
         shell: bash
         run: |
           set -euo pipefail
-          SRC="${{ matrix.binary }}"
+
+          case "${{ matrix.name }}" in
+            windows-*) SRC="build/bush-tasks.exe" ;;
+            *) SRC="build/bush-tasks" ;;
+          esac
           DST="${{ matrix.artifact }}"
+
           if [ ! -f "$SRC" ]; then
             echo "::error::Binary '$SRC' was not produced."
             ls -la build || true
             exit 1
           fi
+
           cp "$SRC" "$DST"
+
           if [ ! -s "$DST" ]; then
             echo "::error::Artifact '$DST' is empty."
             exit 1
           fi
+
           ls -la "$DST"
 
       - name: Upload artifact to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare-release.outputs.tag }}" \
+          gh release upload "${{ needs.prepare_release.outputs.tag }}" \
             "${{ matrix.artifact }}" \
             --repo "${{ github.repository }}" \
             --clobber
+
+  changelog:
+    name: Regenerate CHANGELOG.md
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Rebuild CHANGELOG.md from all releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "# Changelog"
+            echo ""
+            for TAG in $(gh release list --repo "${{ github.repository }}" --limit 100 --json tagName -q '.[].tagName'); do
+              echo "## $TAG"
+              echo ""
+              gh release view "$TAG" --repo "${{ github.repository }}" --json body -q '.body'
+              echo ""
+            done
+          } > CHANGELOG.md
+
+      - name: Commit CHANGELOG.md
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changes in CHANGELOG.md"
+            exit 0
+          fi
+          git commit -m "chore: regenerate CHANGELOG.md"
+          git push origin main || echo "::warning::Failed to push CHANGELOG.md (branch protection?)"
