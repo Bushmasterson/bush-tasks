@@ -19,7 +19,8 @@ concurrency:
 
 env:
   LLVM_MINGW_VERSION: "20240917"
-  MACOSX_DEPLOYMENT_TARGET: "11.0"
+  MACOS_X86_64_MIN: "10.13"
+  MACOS_ARM64_MIN: "11.0"
 
 jobs:
   # ================================================================
@@ -65,17 +66,9 @@ jobs:
           echo "version=$VERSION"       >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA"   >> "$GITHUB_OUTPUT"
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
-          {
-            echo "### Build metadata"
-            echo ""
-            echo "- tag: \`$TAG\`"
-            echo "- version: \`$VERSION\`"
-            echo "- commit: \`$SHORT_SHA\`"
-            echo "- date: \`$BUILD_DATE\`"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   # ================================================================
-  # Tests - gate before release
+  # Tests
   # ================================================================
   test:
     name: Run tests
@@ -101,7 +94,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   # ================================================================
-  # Prepare release - create GitHub Release
+  # Prepare release
   # ================================================================
   prepare_release:
     name: Create GitHub Release
@@ -116,11 +109,6 @@ jobs:
         if: needs.test.result != 'success'
         run: |
           echo "::warning::Tests did not pass (result: ${{ needs.test.result }}). Release will not be created."
-          {
-            echo "### Release creation skipped"
-            echo ""
-            echo "Tests result: \`${{ needs.test.result }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout
         if: needs.test.result == 'success'
@@ -144,7 +132,7 @@ jobs:
           fi
 
   # ================================================================
-  # Build matrix - 9 independent targets
+  # Build matrix
   # ================================================================
   build:
     name: Build (${{ matrix.name }})
@@ -329,7 +317,8 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_X86_64_MIN} \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF \
             -DBUSH_TASKS_BUILD_CLI=ON
           cmake --build build -j
 
@@ -339,13 +328,24 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_ARM64_MIN} \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF \
             -DBUSH_TASKS_BUILD_CLI=ON
           cmake --build build -j
 
       - name: Strip binary (macOS)
         if: startsWith(matrix.name, 'macos-')
         run: strip -x build/bush-tasks || true
+
+      - name: Verify macOS slice (min OS version)
+        if: startsWith(matrix.name, 'macos-')
+        run: |
+          set -euo pipefail
+          BIN="build/bush-tasks"
+          echo "=== otool -l (build version) ==="
+          otool -l "$BIN" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          echo "=== file ==="
+          file "$BIN"
 
       - name: Package artifact
         shell: bash
@@ -389,7 +389,7 @@ jobs:
             --clobber
 
   # ================================================================
-  # macOS Universal - merge x86_64 + arm64
+  # macOS Universal - merge x86_64 + arm64 into a fat binary
   # ================================================================
   macos_universal:
     name: macOS Universal
@@ -424,6 +424,20 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Inspect input slices
+        if: steps.verify_inputs.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          echo "=== x86_64 slice ==="
+          lipo -info macos-binaries/bush-tasks-macos-amd64
+          file macos-binaries/bush-tasks-macos-amd64
+          otool -l macos-binaries/bush-tasks-macos-amd64 | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+          echo ""
+          echo "=== arm64 slice ==="
+          lipo -info macos-binaries/bush-tasks-macos-arm64
+          file macos-binaries/bush-tasks-macos-arm64
+          otool -l macos-binaries/bush-tasks-macos-arm64 | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+
       - name: Create universal binary
         if: steps.verify_inputs.outputs.present == 'true'
         run: |
@@ -433,7 +447,6 @@ jobs:
             macos-binaries/bush-tasks-macos-arm64 \
             -output bush-tasks-macos-universal
           chmod +x bush-tasks-macos-universal
-          lipo -info bush-tasks-macos-universal
 
       - name: Verify universal binary
         if: steps.verify_inputs.outputs.present == 'true'
@@ -449,7 +462,19 @@ jobs:
           echo "Architectures: $ARCHS"
           echo "$ARCHS" | grep -q "x86_64" || { echo "::error::Missing x86_64"; exit 1; }
           echo "$ARCHS" | grep -q "arm64"  || { echo "::error::Missing arm64";  exit 1; }
-          echo "Universal binary OK: $SIZE bytes, $ARCHS"
+
+          echo "=== per-slice minimum OS versions ==="
+          otool -l "$BIN" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" || true
+
+          echo "=== file ==="
+          file "$BIN"
+          echo "OK: universal binary built ($SIZE bytes, $ARCHS)"
+
+      - name: Ad-hoc code sign (optional but helps on some Macs)
+        if: steps.verify_inputs.outputs.present == 'true'
+        run: |
+          codesign --force --sign - bush-tasks-macos-universal || true
+          codesign -dv bush-tasks-macos-universal 2>&1 | head -20 || true
 
       - name: Upload to release
         if: steps.verify_inputs.outputs.present == 'true'
