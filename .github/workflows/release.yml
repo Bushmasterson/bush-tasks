@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: release-${{ github.event.inputs.tag || github.ref_name }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   LLVM_MINGW_VERSION: "20240917"
