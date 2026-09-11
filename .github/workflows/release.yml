@@ -113,6 +113,159 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install toolchain (linux-amd64)
+        if: matrix.name == 'linux-amd64'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Install toolchain (linux-i686)
+        if: matrix.name == 'linux-i686'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build g++-multilib
+
+      - name: Install toolchain (linux-arm64)
+        if: matrix.name == 'linux-arm64'
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++-aarch64-linux-gnu
+
+      - name: Install toolchain (linux-armv7)
+        if: matrix.name == 'linux-armv7'
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++-arm-linux-gnueabihf
+
+      - name: Setup MSYS2 (windows-amd64)
+        if: matrix.name == 'windows-amd64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Setup MSYS2 (windows-x86)
+        if: matrix.name == 'windows-x86'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-gcc
+            mingw-w64-i686-cmake
+            mingw-w64-i686-ninja
+
+      - name: Install toolchain (windows-arm64 / llvm-mingw)
+        if: matrix.name == 'windows-arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build curl xz-utils
+          LLVM_MINGW_VERSION=20240917
+          curl -fsSL -o /tmp/llvm-mingw.tar.xz \
+            "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz"
+          sudo mkdir -p /opt/llvm-mingw
+          sudo tar -xf /tmp/llvm-mingw.tar.xz -C /opt/llvm-mingw --strip-components=1
+          echo "/opt/llvm-mingw/bin" >> "$GITHUB_PATH"
+
+      - name: Install toolchain (macOS)
+        if: startsWith(matrix.name, 'macos-')
+        run: brew install ninja || true
+
+      - name: Build (linux-amd64)
+        if: matrix.name == 'linux-amd64'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build -j
+
+      - name: Build (linux-i686)
+        if: matrix.name == 'linux-i686'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS=-m32 \
+            -DCMAKE_CXX_FLAGS=-m32 \
+            -DCMAKE_EXE_LINKER_FLAGS=-m32 \
+            -DBUSH_TASKS_BUILD_CLI=ON
+          cmake --build build -j
+
+      - name: Build (linux-arm64)
+        if: matrix.name == 'linux-arm64'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build -j
+
+      - name: Build (linux-armv7)
+        if: matrix.name == 'linux-armv7'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=armv7 \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build -j
+
+      - name: Build (windows-amd64)
+        if: matrix.name == 'windows-amd64'
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build
+
+      - name: Build (windows-x86)
+        if: matrix.name == 'windows-x86'
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build
+
+      - name: Build (windows-arm64)
+        if: matrix.name == 'windows-arm64'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_SYSTEM_PROCESSOR=ARM64 \
+            -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang \
+            -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++ \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build -j
+
+      - name: Build (macos-amd64)
+        if: matrix.name == 'macos-amd64'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DBUSH_TASKS_BUILD_CLI=ON
+          cmake --build build -j
+
+      - name: Build (macos-arm64)
+        if: matrix.name == 'macos-arm64'
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DBUSH_TASKS_BUILD_CLI=ON
+          cmake --build build -j
+
+      - name: Strip binary (macOS)
+        if: startsWith(matrix.name, 'macos-')
         run: strip -x build/bush-tasks || true
 
       - name: Package artifact
@@ -122,7 +275,7 @@ jobs:
 
           case "${{ matrix.name }}" in
             windows-*) SRC="build/bush-tasks.exe" ;;
-            *) SRC="build/bush-tasks" ;;
+            *)         SRC="build/bush-tasks" ;;
           esac
           DST="${{ matrix.artifact }}"
 
