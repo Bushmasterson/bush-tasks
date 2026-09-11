@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.0
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.8...v2.1.0
+
+## v2.0.8
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.7...v2.0.8
+
+## v2.0.7
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.5...v2.0.7
+
+## v2.0.5
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.4...v2.0.5
+
 ## v2.0.3
 
 **Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.2...v2.0.3
