@@ -17,10 +17,111 @@ concurrency:
   group: release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
+env:
+  PROJECT_NAME: bush-tasks
+  LLVM_MINGW_VERSION: "20240917"
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
+
 jobs:
+  # ═══════════════════════════════════════════════
+  # 1. Guard — fail fast before any heavy work
+  # ═══════════════════════════════════════════════
+  guard:
+    name: Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify canonical repository
+        run: |
+          EXPECTED="Bushmasteron/bush-tasks"
+          if [ "${{ github.repository }}" != "$EXPECTED" ]; then
+            echo "::error::This workflow runs only on $EXPECTED (current: ${{ github.repository }})."
+            exit 1
+          fi
+
+      - name: Resolve and validate tag
+        id: validate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag '$TAG' does not match vX.Y.Z"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
+      - name: Ensure tag exists in repository
+        run: |
+          TAG="${{ steps.validate.outputs.tag }}"
+          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' does not exist in the repository. Create it first."
+            exit 1
+          fi
+
+      - name: Verify gh CLI authentication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth status
+
+  # ═══════════════════════════════════════════════
+  # 2. Build data — single source of truth
+  # ═══════════════════════════════════════════════
+  build_data:
+    name: Generate build data
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.data.outputs.tag }}
+      version: ${{ steps.data.outputs.version }}
+      short_sha: ${{ steps.data.outputs.short_sha }}
+      build_date: ${{ steps.data.outputs.build_date }}
+    steps:
+      - name: Compute metadata
+        id: data
+        run: |
+          TAG="${{ needs.guard.outputs.tag }}"
+          VERSION="${TAG#v}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "tag=$TAG"                 >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"         >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA"     >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE"   >> "$GITHUB_OUTPUT"
+          {
+            echo "### Build metadata"
+            echo ""
+            echo "- **tag**: \`$TAG\`"
+            echo "- **version**: \`$VERSION\`"
+            echo "- **commit**: \`$SHORT_SHA\`"
+            echo "- **date**: \`$BUILD_DATE\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ═══════════════════════════════════════════════
+  # 3. Tests — gate before release
+  # ═══════════════════════════════════════════════
   test:
     name: Run tests
+    needs: [guard, build_data]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,32 +138,27 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
+  # ═══════════════════════════════════════════════
+  # 4. Create GitHub Release
+  # ═══════════════════════════════════════════════
   prepare_release:
     name: Create GitHub Release
-    needs: test
+    needs: [guard, build_data, test]
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.resolve_tag.outputs.tag }}
+    timeout-minutes: 5
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Resolve tag
-        id: resolve_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create release (published, with auto-generated notes)
+      - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.resolve_tag.outputs.tag }}"
+          TAG="${{ needs.build_data.outputs.tag }}"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release $TAG already exists — skipping creation."
           else
@@ -72,9 +168,15 @@ jobs:
               --generate-notes
           fi
 
+  # ═══════════════════════════════════════════════
+  # 5. Build matrix — 9 independent targets
+  # ═══════════════════════════════════════════════
   build:
     name: Build (${{ matrix.name }})
-    needs: prepare_release
+    needs: [build_data, prepare_release]
+    timeout-minutes: 45
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +215,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ─── Toolchain installation ───
       - name: Install toolchain (linux-amd64)
         if: matrix.name == 'linux-amd64'
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
@@ -156,17 +259,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build curl xz-utils
-          LLVM_MINGW_VERSION=20240917
           curl -fsSL -o /tmp/llvm-mingw.tar.xz \
             "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-20.04-x86_64.tar.xz"
           sudo mkdir -p /opt/llvm-mingw
           sudo tar -xf /tmp/llvm-mingw.tar.xz -C /opt/llvm-mingw --strip-components=1
           echo "/opt/llvm-mingw/bin" >> "$GITHUB_PATH"
 
-      - name: Install toolchain (macOS)
+      - name: Ensure ninja (macOS)
         if: startsWith(matrix.name, 'macos-')
-        run: brew install ninja || true
+        run: which ninja || brew install ninja
 
+      # ─── Build steps ───
       - name: Build (linux-amd64)
         if: matrix.name == 'linux-amd64'
         run: |
@@ -252,6 +355,7 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
             -DBUSH_TASKS_BUILD_CLI=ON
           cmake --build build -j
 
@@ -261,9 +365,11 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET} \
             -DBUSH_TASKS_BUILD_CLI=ON
           cmake --build build -j
 
+      # ─── Strip / package / verify ───
       - name: Strip binary (macOS)
         if: startsWith(matrix.name, 'macos-')
         run: strip -x build/bush-tasks || true
@@ -287,28 +393,162 @@ jobs:
 
           cp "$SRC" "$DST"
 
-          if [ ! -s "$DST" ]; then
-            echo "::error::Artifact '$DST' is empty."
+          SIZE=$(wc -c < "$DST")
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Artifact '$DST' is suspiciously small ($SIZE bytes)."
             exit 1
           fi
 
-          ls -la "$DST"
+          echo "Packaged: $DST ($SIZE bytes)"
 
-      - name: Upload artifact to release
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+          retention-days: 14
+          if-no-files-found: error
+
+      # ─── Publish to release (skip macOS — universal is built later) ───
+      - name: Upload to release
+        if: ${{ !startsWith(matrix.name, 'macos-') }}
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.prepare_release.outputs.tag }}" \
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
             "${{ matrix.artifact }}" \
             --repo "${{ github.repository }}" \
             --clobber
 
-  changelog:
-    name: Regenerate CHANGELOG.md
-    needs: build
+  # ═══════════════════════════════════════════════
+  # 6. macOS Universal — merge x86_64 + arm64
+  # ═══════════════════════════════════════════════
+  macos_universal:
+    name: macOS Universal
+    needs: [build_data, build]
+    runs-on: macos-14
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download macOS binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-*
+          merge-multiple: true
+          path: macos-binaries
+
+      - name: List downloaded files
+        run: ls -la macos-binaries
+
+      - name: Create universal binary
+        run: |
+          set -euo pipefail
+          lipo -create \
+            macos-binaries/bush-tasks-macos-amd64 \
+            macos-binaries/bush-tasks-macos-arm64 \
+            -output bush-tasks-macos-universal
+          lipo -info bush-tasks-macos-universal
+          chmod +x bush-tasks-macos-universal
+
+      - name: Verify universal binary
+        run: |
+          set -euo pipefail
+          BIN="bush-tasks-macos-universal"
+          SIZE=$(wc -c < "$BIN")
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Universal binary is suspiciously small ($SIZE bytes)."
+            exit 1
+          fi
+          ARCHS=$(lipo -archs "$BIN")
+          echo "Architectures: $ARCHS"
+          echo "$ARCHS" | grep -q "x86_64" || { echo "::error::Missing x86_64"; exit 1; }
+          echo "$ARCHS" | grep -q "arm64"  || { echo "::error::Missing arm64";  exit 1; }
+          echo "Universal binary OK: $SIZE bytes, $ARCHS"
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
+            bush-tasks-macos-universal \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  # ═══════════════════════════════════════════════
+  # 7. Verify release — checksums + asset presence
+  # ═══════════════════════════════════════════════
+  verify_release:
+    name: Verify release assets
+    needs: [build_data, build, macos_universal]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download all release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          gh release download "${{ needs.build_data.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --dir dist \
+            --clobber || true
+          ls -la dist
+
+      - name: Verify expected assets are present
+        run: |
+          set -euo pipefail
+          REQUIRED=(
+            "bush-tasks-linux-amd64"
+            "bush-tasks-linux-i686"
+            "bush-tasks-linux-arm64"
+            "bush-tasks-linux-armv7"
+            "bush-tasks-windows-amd64.exe"
+            "bush-tasks-windows-x86.exe"
+            "bush-tasks-windows-arm64.exe"
+            "bush-tasks-macos-universal"
+          )
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -s "dist/$f" ]; then
+              echo "::error::Missing or empty asset: $f"
+              MISSING=1
+            else
+              echo "OK: $f ($(wc -c < "dist/$f") bytes)"
+            fi
+          done
+          [ "$MISSING" -eq 0 ] || exit 1
+
+      - name: Generate SHA256SUMS.txt
+        run: |
+          cd dist
+          sha256sum bush-tasks-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
+            dist/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  # ═══════════════════════════════════════════════
+  # 8. Regenerate CHANGELOG.md
+  # ═══════════════════════════════════════════════
+  changelog:
+    name: Regenerate CHANGELOG.md
+    needs: [build_data, verify_release]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -343,3 +583,24 @@ jobs:
           fi
           git commit -m "chore: regenerate CHANGELOG.md"
           git push origin main || echo "::warning::Failed to push CHANGELOG.md (branch protection?)"
+
+  # ═══════════════════════════════════════════════
+  # Future placeholders (disabled)
+  # ═══════════════════════════════════════════════
+  #
+  # - name: Sign binaries (cosign keyless)
+  #   if: startsWith(matrix.name, 'linux-')
+  #   uses: sigstore/cosign-installer@v3
+  #   with: { cosign-release: 'v2.2.0' }
+  #
+  # - name: Generate SBOM (Syft)
+  #   uses: anchore/sbom-action@v0
+  #   with:
+  #     path: ./${{ matrix.artifact }}
+  #     format: spdx-json
+  #
+  # - name: Upload coverage to Codecov
+  #   uses: codecov/codecov-action@v4
+  #   with:
+  #     files: ./build/coverage.info
+  #     fail_ci_if_error: false
