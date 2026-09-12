@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.1.1
+
+## What's Changed
+* chore: setup development workflow by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/6
+* feat: infrastructure — dependabot, codeql, release-drafter, labeler, stale by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/7
+* refactor: restructure project layout and cleanup by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/13
+* chore: add PR automation (auto-merge, size labels, welcome) by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/14
+* feat: add .deb and .rpm packaging by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/15
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.1.0...v2.1.1
+
 ## v2.1.0
 
 **Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.0.8...v2.1.0
@@ -95,3 +107,6 @@
 
 
 ## v1.0.1
+
+
+
