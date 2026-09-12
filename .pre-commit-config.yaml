@@ -1,0 +1,46 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v18.1.8
+    hooks:
+      - id: clang-format
+        name: clang-format
+        description: Format C/C++ files with clang-format
+        types_or: [c++, c]
+        args: ["-i", "--style=file", "--fallback-style=LLVM"]
+        files: \.(c|cc|cpp|cxx|h|hpp|hh|hxx)$
+        exclude: |
+          (?x)^(
+            include/json\.hpp|
+            third_party/.*|
+            vendor/.*|
+            external/.*|
+            deps/.*
+          )$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: |
+          (?x)^(
+            include/json\.hpp|
+            third_party/.*|
+            vendor/.*
+          )$
+      - id: end-of-file-fixer
+        exclude: |
+          (?x)^(
+            include/json\.hpp|
+            third_party/.*|
+            vendor/.*
+          )$
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: |
+          (?x)^(
+            include/json\.hpp|
+            third_party/.*|
+            vendor/.*
+          )$

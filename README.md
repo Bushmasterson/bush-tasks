@@ -2,10 +2,6 @@
 
 A small cross-platform CLI task manager written in C++17.
 
-[![CI](https://github.com/Bushmasterson/bush-tasks/actions/workflows/ci.yml/badge.svg)](https://github.com/Bushmasterson/bush-tasks/actions/workflows/ci.yml)
-[![Release](https://github.com/Bushmasterson/bush-tasks/actions/workflows/release.yml/badge.svg)](https://github.com/Bushmasterson/bush-tasks/actions/workflows/release.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 ## Features
 
 - Add, edit, delete tasks and subtasks
@@ -64,19 +60,6 @@ Flags:
 ```
 -v, --version    Print version
 -h, --help       Print help
-```
-
-Example:
-
-```
-> add Write README
-Task added
-> priority 1 high
-Priority updated
-> status 1 done
-Status updated
-> tasks
-1. [done] [high] Write README (created: 11.09.26)
 ```
 
 ## Build from source

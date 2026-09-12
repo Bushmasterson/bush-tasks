@@ -3,7 +3,49 @@ name: CI
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.txt"
+      - "**/*.rst"
+      - "**/*.adoc"
+      - "LICENSE"
+      - "LICENSE.*"
+      - "NOTICE"
+      - "CHANGELOG*"
+      - "README*"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - ".clang-format"
+      - ".clang-format-ignore"
+      - ".pre-commit-config.yaml"
+      - ".pre-commit-hooks.yaml"
+      - "docs/**"
+      - "assets/**"
+      - ".vscode/**"
+      - ".idea/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.txt"
+      - "**/*.rst"
+      - "**/*.adoc"
+      - "LICENSE"
+      - "LICENSE.*"
+      - "NOTICE"
+      - "CHANGELOG*"
+      - "README*"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - ".clang-format"
+      - ".clang-format-ignore"
+      - ".pre-commit-config.yaml"
+      - ".pre-commit-hooks.yaml"
+      - "docs/**"
+      - "assets/**"
+      - ".vscode/**"
+      - ".idea/**"
 
 permissions:
   contents: read
@@ -106,3 +148,40 @@ jobs:
           ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1"
           UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1"
         run: ctest --test-dir build --output-on-failure
+
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          FILES=$(find src include tests -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'json.hpp' | sort)
+          if [ -z "$FILES" ]; then
+            echo "No C++ files to check."
+            exit 0
+          fi
+          FAILED=0
+          for f in $FILES; do
+            if ! diff -u "$f" <(clang-format --style=file "$f"); then
+              echo "::error file=$f::File is not clang-format compliant"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "::error::Some files are not formatted. Run locally:"
+            echo "::error::  clang-format -i src/*.cpp include/*.h tests/*.cpp"
+            echo "::error::Or use pre-commit: py -m pre_commit run --all-files"
+            exit 1
+          fi
+          echo "All C++ files are clang-format compliant."
