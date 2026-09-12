@@ -1,6 +1,6 @@
-#include "bush_tasks_version.h.in"
-#include "cli.h"
-#include "core.h"
+#include "bush_tasks/cli.h"
+#include "bush_tasks/core.h"
+#include "bush_tasks/version.h.in"
 
 #include <cstring>
 #include <iostream>
@@ -16,46 +16,64 @@ void printVersion( ) {
   std::cout << "bush-tasks " << BUSH_TASKS_VERSION << '\n';
 }
 
-void printHelp( ) {
+void printUsage( ) {
   std::cout << "Usage: bush-tasks [OPTIONS]\n"
             << "\n"
             << "Options:\n"
             << "  -v, --version   Print version and exit\n"
-            << "  -h, --help      Print this help and exit\n"
+            << "  -h, --help      Print help and exit\n"
             << "\n"
-            << "Interactive commands (once running):\n"
+            << "Once running, use these interactive commands:\n"
             << "  add <text>\n"
             << "  del <number>\n"
             << "  edit <number> <text>\n"
             << "  sub <number> <text>\n"
             << "  priority <number> <low|medium|high|urgent>\n"
-            << "  status <number> <done|postponed|pending>\n"
+            << "  status <number> <pending|done|postponed>\n"
             << "  tasks\n"
             << "  clear\n"
             << "  exit\n";
 }
 
-} // namespace
-
-int main(int argc, char** argv) {
+void enableUtf8Console( ) {
 #ifdef _WIN32
-  SetConsoleOutputCP(65001);
-  SetConsoleCP(65001);
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
 #endif
+}
 
+enum class CliAction { Continue, ExitSuccess, ExitError };
+
+CliAction parseArguments(int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
     const char* arg = argv[i];
     if (std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--version") == 0) {
       printVersion( );
-      return 0;
+      return CliAction::ExitSuccess;
     }
     if (std::strcmp(arg, "-h") == 0 || std::strcmp(arg, "--help") == 0) {
-      printHelp( );
-      return 0;
+      printUsage( );
+      return CliAction::ExitSuccess;
     }
     std::cerr << "Unknown option: " << arg << "\n\n";
-    printHelp( );
+    printUsage( );
+    return CliAction::ExitError;
+  }
+  return CliAction::Continue;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+  enableUtf8Console( );
+
+  switch (parseArguments(argc, argv)) {
+  case CliAction::ExitSuccess:
+    return 0;
+  case CliAction::ExitError:
     return 2;
+  case CliAction::Continue:
+    break;
   }
 
   const std::string filePath = "tasks.json";
@@ -68,14 +86,16 @@ int main(int argc, char** argv) {
 
     std::string input;
     if (!std::getline(std::cin, input)) {
-      break;
+      break; // EOF (Ctrl+D / Ctrl+Z then Enter)
     }
 
     if (bush_tasks::handleCommand(input, tasks)) {
       break;
     }
 
-    bush_tasks::saveTasks(tasks, filePath);
+    if (!bush_tasks::saveTasks(tasks, filePath)) {
+      std::cerr << "Warning: failed to save tasks to " << filePath << '\n';
+    }
   }
 
   return 0;
