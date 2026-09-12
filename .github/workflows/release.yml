@@ -32,7 +32,7 @@ jobs:
       build_date: ${{ steps.data.outputs.build_date }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -79,7 +79,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install toolchain
         run: sudo apt-get update && sudo apt-get install -y build-essential cmake ninja-build
@@ -113,7 +113,7 @@ jobs:
 
       - name: Checkout
         if: needs.test.result == 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -186,7 +186,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install toolchain (linux-amd64)
         if: matrix.name == 'linux-amd64'
@@ -601,7 +601,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -718,7 +718,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
