@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.1
+
+## What's Changed
+* feat(cli): add help, version, and command aliases by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/17
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.0...v2.2.1
+
 ## v2.2.0
 
 ## What's Changed
@@ -115,3 +123,6 @@
 
 
 ## v1.0.1
+
+
+
