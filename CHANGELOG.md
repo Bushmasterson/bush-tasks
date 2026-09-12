@@ -1,13 +1,8 @@
 # Changelog
 
-## v2.2.2
+## v2.2.1
 
-## What's Changed
-* feat(cli): add help, version, and command aliases by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/17
-* fix(cmake): add config.cpp and i18n.cpp to library by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/19
-
-
-**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.0...v2.2.2
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.2...v2.2.1
 
 ## v2.2.0
 
@@ -16,18 +11,6 @@
 
 
 **Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.1.1...v2.2.0
-
-## v2.1.1
-
-## What's Changed
-* chore: setup development workflow by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/6
-* feat: infrastructure — dependabot, codeql, release-drafter, labeler, stale by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/7
-* refactor: restructure project layout and cleanup by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/13
-* chore: add PR automation (auto-merge, size labels, welcome) by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/14
-* feat: add .deb and .rpm packaging by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/15
-
-
-**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.1.0...v2.1.1
 
 ## v2.1.0
 
