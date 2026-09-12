@@ -1,5 +1,7 @@
 #include "bush_tasks/cli.h"
+#include "bush_tasks/config.h"
 #include "bush_tasks/core.h"
+#include "bush_tasks/i18n.h"
 #include "bush_tasks/version.h.in"
 
 #include <cstring>
@@ -31,6 +33,7 @@ void printUsage( ) {
             << "  priority <number> <low|medium|high|urgent>\n"
             << "  status <number> <pending|done|postponed>\n"
             << "  tasks\n"
+            << "  settings [language <code>]\n"
             << "  clear\n"
             << "  exit\n";
 }
@@ -76,7 +79,14 @@ int main(int argc, char** argv) {
     break;
   }
 
-  const std::string filePath = "tasks.json";
+  bush_tasks::initI18n( );
+
+  const bush_tasks::Config cfg = bush_tasks::loadConfig( );
+  if (!cfg.language.empty( )) {
+    bush_tasks::setLanguage(cfg.language);
+  }
+
+  const std::string filePath = bush_tasks::configDirectory( ) + "/tasks.json";
   auto tasks = bush_tasks::loadTasks(filePath);
 
   while (true) {
