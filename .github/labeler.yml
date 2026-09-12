@@ -1,0 +1,43 @@
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+          - "LICENSE"
+          - "README*"
+
+"ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/*.yml"
+          - ".github/*.yaml"
+
+"build":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "CMakeLists.txt"
+          - "cmake/**"
+          - "**/*.cmake"
+
+"source":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/**"
+          - "include/**"
+
+"tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "include/json.hpp"
+          - ".pre-commit-config.yaml"
+
+"packaging":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packaging/**"
