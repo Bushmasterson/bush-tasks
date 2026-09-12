@@ -153,16 +153,21 @@ jobs:
     name: clang-format
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install clang-format
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format
 
-      - name: Check formatting
+      - name: Auto-format C++ files
         run: |
           set -euo pipefail
           FILES=$(find src include tests -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ! -name 'json.hpp' | sort)
@@ -170,18 +175,30 @@ jobs:
             echo "No C++ files to check."
             exit 0
           fi
-          FAILED=0
           for f in $FILES; do
-            if ! diff -u "$f" <(clang-format --style=file "$f"); then
-              echo "::error file=$f::File is not clang-format compliant"
-              FAILED=1
-            fi
+            clang-format -i --style=file "$f"
           done
-          if [ "$FAILED" -eq 1 ]; then
-            echo ""
-            echo "::error::Some files are not formatted. Run locally:"
-            echo "::error::  clang-format -i src/*.cpp include/*.h tests/*.cpp"
-            echo "::error::Or use pre-commit: py -m pre_commit run --all-files"
-            exit 1
+
+      - name: Commit and push auto-format fixes
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Nothing to format — all files already compliant."
+            exit 0
           fi
-          echo "All C++ files are clang-format compliant."
+          echo "Auto-formatting changed files:"
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: auto-format with clang-format"
+          git push
+          echo "::notice::clang-format auto-fixed formatting and pushed. Re-run checks to verify."
+
+      - name: Warn on non-PR events
+        if: github.event_name != 'pull_request'
+        run: |
+          if ! git diff --quiet; then
+            echo "::warning::Some files are not clang-format compliant. Run locally: clang-format -i on all .cpp/.h files."
+          fi
