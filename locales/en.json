@@ -45,6 +45,9 @@
     "main.opt_language": "  -l, --language <code>   use the given language for this run",
     "main.unknown_option": "Unknown option: {option}",
     "main.save_warning": "Warning: could not save tasks to {path}",
-    "main.commands_header": "Interactive commands:"
+    "main.commands_header": "Interactive commands:",
+    "settings.current_mark": "current",
+    "settings.how_to_change": "How to change language:",
+    "settings.example": "Example"
   }
 }

@@ -45,6 +45,9 @@
     "main.opt_language": "  -l, --language <код>    использовать указанный язык для этого запуска",
     "main.unknown_option": "Неизвестная опция: {option}",
     "main.save_warning": "Предупреждение: не удалось сохранить задачи в {path}",
-    "main.commands_header": "Интерактивные команды:"
+    "main.commands_header": "Интерактивные команды:",
+    "settings.current_mark": "текущий",
+    "settings.how_to_change": "Как сменить язык:",
+    "settings.example": "Пример"
   }
 }

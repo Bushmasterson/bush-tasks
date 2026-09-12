@@ -14,6 +14,8 @@
 
 namespace {
 
+constexpr const char* kSeparator = "──────────────────────────────────────────────";
+
 std::string readRestOfLine(std::istringstream& iss) {
   std::string rest;
   std::getline(iss, rest);
@@ -32,29 +34,53 @@ int readValidIndex(std::istringstream& iss, std::size_t taskCount) {
   return index;
 }
 
-void printAvailableLanguages( ) {
-  std::cout << bush_tasks::tr("settings.available") << ":\n";
+std::string localeName(const std::string& code) {
   for (const auto& l : bush_tasks::availableLocales( )) {
-    std::cout << "  " << l.code << "  —  " << l.name << " (" << l.nameEn << ")\n";
+    if (l.code == code) {
+      return l.name;
+    }
   }
+  return code;
+}
+
+void printAvailableLanguages( ) {
+  const std::string current = bush_tasks::currentLanguage( );
+
+  for (const auto& l : bush_tasks::availableLocales( )) {
+    const bool isCurrent = (l.code == current);
+    std::cout << "  " << (isCurrent ? "▶ " : "  ") << l.code << "  —  " << l.name << " (" << l.nameEn << ")"
+              << (isCurrent ? "  ← " + bush_tasks::tr("settings.current_mark") : "") << "\n";
+  }
+}
+
+void printHowToChange( ) {
+  std::cout << "\n"
+            << "  " << bush_tasks::tr("settings.how_to_change") << "\n"
+            << "     settings language <code>\n"
+            << "\n"
+            << "  " << bush_tasks::tr("settings.example") << ":\n"
+            << "     settings language ru\n";
 }
 
 void renderSettings( ) {
   using bush_tasks::tr;
-  std::cout << tr("settings.current") << ":\n";
 
-  std::string currentName = bush_tasks::currentLanguage( );
-  for (const auto& l : bush_tasks::availableLocales( )) {
-    if (l.code == bush_tasks::currentLanguage( )) {
-      currentName = l.name;
-      break;
-    }
-  }
-  std::cout << "  " << tr("settings.language") << ":  " << bush_tasks::currentLanguage( ) << " (" << currentName
-            << ")\n";
-  std::cout << "  " << tr("settings.config_file") << ":  " << bush_tasks::configFilePath( ) << "\n";
-  std::cout << "\n";
+  const std::string current = bush_tasks::currentLanguage( );
+  const std::string currentName = localeName(current);
+
+  std::cout << kSeparator << "\n"
+            << "  " << tr("settings.current") << "\n"
+            << kSeparator << "\n"
+            << "  " << tr("settings.language") << ":  " << current << "  (" << currentName << ")\n"
+            << "  " << tr("settings.config_file") << ":  " << bush_tasks::configFilePath( ) << "\n";
+
+  std::cout << "\n"
+            << kSeparator << "\n"
+            << "  " << tr("settings.available") << "\n"
+            << kSeparator << "\n";
+
   printAvailableLanguages( );
+  printHowToChange( );
 }
 
 void handleSettingsCommand(std::istringstream& iss) {
@@ -68,30 +94,39 @@ void handleSettingsCommand(std::istringstream& iss) {
     return;
   }
 
-  if (sub != "language") {
+  if (sub != "language" && sub != "lang") {
     std::cout << tr("settings.usage") << "\n";
+    printHowToChange( );
     return;
   }
 
   std::string code;
   iss >> code;
 
+  // settings language — показать текущий и как менять
   if (code.empty( )) {
-    std::string currentName = bush_tasks::currentLanguage( );
-    for (const auto& l : bush_tasks::availableLocales( )) {
-      if (l.code == bush_tasks::currentLanguage( )) {
-        currentName = l.name;
-        break;
-      }
-    }
-    std::cout << tr("settings.language_current", {{"name", currentName}, {"code", bush_tasks::currentLanguage( )}})
-              << "\n";
+    const std::string current = bush_tasks::currentLanguage( );
+    const std::string currentName = localeName(current);
+
+    std::cout << tr("settings.language_current", {{"name", currentName}, {"code", current}}) << "\n";
+    std::cout << "\n"
+              << kSeparator << "\n"
+              << "  " << tr("settings.available") << "\n"
+              << kSeparator << "\n";
+    printAvailableLanguages( );
+    printHowToChange( );
     return;
   }
 
+  // settings language <code> — попытка смены
   if (!bush_tasks::setLanguage(code)) {
     std::cout << tr("settings.unknown_language", {{"code", code}}) << "\n\n";
+
+    std::cout << kSeparator << "\n"
+              << "  " << tr("settings.available") << "\n"
+              << kSeparator << "\n";
     printAvailableLanguages( );
+    printHowToChange( );
     return;
   }
 
@@ -99,15 +134,9 @@ void handleSettingsCommand(std::istringstream& iss) {
   cfg.language = code;
   bush_tasks::saveConfig(cfg);
 
-  std::string newName = code;
-  for (const auto& l : bush_tasks::availableLocales( )) {
-    if (l.code == code) {
-      newName = l.name;
-      break;
-    }
-  }
+  const std::string newName = localeName(code);
 
-  std::cout << tr("settings.language_changed", {{"name", newName}, {"code", code}}) << "\n";
+  std::cout << "✓ " << tr("settings.language_changed", {{"name", newName}, {"code", code}}) << "\n";
 }
 
 void renderVersion( ) {

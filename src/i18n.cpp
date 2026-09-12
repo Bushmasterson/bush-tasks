@@ -69,7 +69,7 @@ std::vector<std::string> customLocaleDirs( ) {
 
 void loadBuiltins( ) {
   g_locales.clear( );
-  for (const char* raw : {locales_data::EN, locales_data::RU, locales_data::ES}) {
+  for (const char* raw : {locales_data::EN, locales_data::RU}) {
     LocaleData loc = parseLocale(raw);
     if (!loc.code.empty( )) {
       g_locales.push_back(std::move(loc));

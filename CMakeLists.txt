@@ -65,7 +65,6 @@ configure_file(
 
 file(READ "${PROJECT_SOURCE_DIR}/locales/en.json" LOCALES_EN_JSON)
 file(READ "${PROJECT_SOURCE_DIR}/locales/ru.json" LOCALES_RU_JSON)
-file(READ "${PROJECT_SOURCE_DIR}/locales/es.json" LOCALES_ES_JSON)
 
 configure_file(
     "${PROJECT_SOURCE_DIR}/cmake/locales_data.h.in"
