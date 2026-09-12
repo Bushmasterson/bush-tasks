@@ -28,5 +28,6 @@ test_tasks.json
 *.sln.docstates
 .vscode/
 .DS_Store
+tasks.json
 Thumbs.db
 desktop.ini
