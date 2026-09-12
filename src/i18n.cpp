@@ -5,15 +5,12 @@
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
-
-namespace fs = std::filesystem;
 
 namespace bush_tasks {
 
@@ -56,13 +53,13 @@ std::vector<std::string> customLocaleDirs( ) {
 
 #ifdef _WIN32
   if (const char* appdata = std::getenv("APPDATA"); appdata && *appdata) {
-    dirs.push_back((fs::path(appdata) / "bush-tasks" / "locales").string( ));
+    dirs.push_back(std::string(appdata) + "/bush-tasks/locales");
   }
 #else
   if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg && *xdg) {
-    dirs.push_back((fs::path(xdg) / "bush-tasks" / "locales").string( ));
+    dirs.push_back(std::string(xdg) + "/bush-tasks/locales");
   } else if (const char* home = std::getenv("HOME"); home && *home) {
-    dirs.push_back((fs::path(home) / ".local" / "share" / "bush-tasks" / "locales").string( ));
+    dirs.push_back(std::string(home) + "/.local/share/bush-tasks/locales");
   }
 #endif
 
@@ -82,8 +79,8 @@ void loadBuiltins( ) {
 
 bool loadCustom(const std::string& code) {
   for (const auto& dir : customLocaleDirs( )) {
-    const fs::path p = fs::path(dir) / (code + ".json");
-    std::ifstream f(p);
+    const std::string path = dir + "/" + code + ".json";
+    std::ifstream f(path);
     if (!f.is_open( )) {
       continue;
     }
