@@ -7,9 +7,9 @@
 
 namespace bush_tasks {
 
-void renderHeader();
+void renderHeader( );
 void renderTasks(const std::vector<Task>& tasks);
-void renderHelp();
+void renderHelp( );
 
 // Processes a single interactive command.
 // Returns true if the main loop should exit.
