@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-# ─────────────────────────────────────────────
-# Version — overridable from the CI pipeline
-# (workflow passes -DBUSH_TASKS_VERSION=2.1.0)
-# ─────────────────────────────────────────────
 set(BUSH_TASKS_VERSION "1.0.0" CACHE STRING "Project version")
 
 project(bush_tasks
@@ -13,9 +9,6 @@ project(bush_tasks
     LANGUAGES   CXX
 )
 
-# ─────────────────────────────────────────────
-# Global settings
-# ─────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -24,18 +17,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# ─────────────────────────────────────────────
-# Options
-# ─────────────────────────────────────────────
 option(BUSH_TASKS_BUILD_CLI   "Build the bush-tasks CLI executable"       ON)
 option(BUSH_TASKS_BUILD_TESTS "Build the unit tests"                      OFF)
 option(BUSH_TASKS_STATIC      "Link the CLI statically (where supported)" OFF)
 option(BUSH_TASKS_STRIP       "Strip release binaries (GCC/Clang)"        ON)
 option(BUSH_TASKS_WERROR      "Treat warnings as errors"                  OFF)
 
-# ─────────────────────────────────────────────
-# Helper: apply common compiler settings to a target
-# ─────────────────────────────────────────────
 function(bush_tasks_setup_target target)
     target_compile_features(${target} PUBLIC cxx_std_17)
 
@@ -68,9 +55,6 @@ function(bush_tasks_setup_target target)
     endif()
 endfunction()
 
-# ─────────────────────────────────────────────
-# Generated version header
-# ─────────────────────────────────────────────
 set(BUSH_TASKS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
 
 configure_file(
@@ -79,12 +63,21 @@ configure_file(
     @ONLY
 )
 
-# ─────────────────────────────────────────────
-# Library: bush_tasks
-# ─────────────────────────────────────────────
+file(READ "${PROJECT_SOURCE_DIR}/locales/en.json" LOCALES_EN_JSON)
+file(READ "${PROJECT_SOURCE_DIR}/locales/ru.json" LOCALES_RU_JSON)
+file(READ "${PROJECT_SOURCE_DIR}/locales/es.json" LOCALES_ES_JSON)
+
+configure_file(
+    "${PROJECT_SOURCE_DIR}/cmake/locales_data.h.in"
+    "${BUSH_TASKS_GENERATED_INCLUDE_DIR}/bush_tasks/locales_data.h"
+    @ONLY
+)
+
 add_library(bush_tasks
     src/core.cpp
     src/cli.cpp
+    src/config.cpp
+    src/i18n.cpp
 )
 add_library(bush_tasks::bush_tasks ALIAS bush_tasks)
 
@@ -99,9 +92,6 @@ target_include_directories(bush_tasks
 
 bush_tasks_setup_target(bush_tasks)
 
-# ─────────────────────────────────────────────
-# CLI executable: bush-tasks
-# ─────────────────────────────────────────────
 if(BUSH_TASKS_BUILD_CLI)
     add_executable(bush-tasks src/main.cpp)
     target_link_libraries(bush-tasks PRIVATE bush_tasks)
@@ -132,9 +122,6 @@ if(BUSH_TASKS_BUILD_CLI)
     endif()
 endif()
 
-# ─────────────────────────────────────────────
-# Tests
-# ─────────────────────────────────────────────
 if(BUSH_TASKS_BUILD_TESTS)
     enable_testing()
 
@@ -150,9 +137,6 @@ if(BUSH_TASKS_BUILD_TESTS)
     )
 endif()
 
-# ─────────────────────────────────────────────
-# Install
-# ─────────────────────────────────────────────
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -171,7 +155,6 @@ if(BUSH_TASKS_BUILD_CLI)
     )
 endif()
 
-# Public headers + generated version header
 install(
     DIRECTORY "${PROJECT_SOURCE_DIR}/include/"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -179,8 +162,41 @@ install(
 )
 
 install(
-    FILES "${BUSH_TASKS_GENERATED_INCLUDE_DIR}/bush_tasks/version.h"
+    FILES
+        "${BUSH_TASKS_GENERATED_INCLUDE_DIR}/bush_tasks/version.h"
+        "${BUSH_TASKS_GENERATED_INCLUDE_DIR}/bush_tasks/locales_data.h"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/bush_tasks
+)
+
+install(
+    DIRECTORY "${PROJECT_SOURCE_DIR}/locales/"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/bush-tasks/locales
+)
+
+install(
+    FILES "${PROJECT_SOURCE_DIR}/packaging/bush-tasks.1"
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+)
+
+install(
+    FILES "${PROJECT_SOURCE_DIR}/packaging/completions/bush-tasks.bash"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions
+    RENAME bush-tasks
+)
+
+install(
+    FILES "${PROJECT_SOURCE_DIR}/packaging/completions/_bush-tasks"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions
+)
+
+install(
+    FILES "${PROJECT_SOURCE_DIR}/packaging/completions/bush-tasks.fish"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d
+)
+
+install(
+    FILES "${PROJECT_SOURCE_DIR}/packaging/completions/bush-tasks.ps1"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/powershell-completion
 )
 
 install(
