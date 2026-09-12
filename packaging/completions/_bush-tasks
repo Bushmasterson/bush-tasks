@@ -1,0 +1,37 @@
+#compdef bush-tasks
+
+_bush_tasks() {
+    local -a commands
+    commands=(
+        'add:add a new task'
+        'del:delete a task'
+        'edit:edit task text'
+        'sub:add a subtask'
+        'priority:change task priority'
+        'status:change task status'
+        'tasks:list all tasks'
+        'clear:delete all tasks'
+        'exit:quit'
+        'quit:quit'
+    )
+
+    _arguments '1:command:->cmds' '*::arg:->args'
+
+    case "$state" in
+        cmds)
+            _describe 'command' commands
+            ;;
+        args)
+            case "${words[2]}" in
+                priority)
+                    _values 'priority' low medium high urgent
+                    ;;
+                status)
+                    _values 'status' pending done postponed
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_bush_tasks "$@"

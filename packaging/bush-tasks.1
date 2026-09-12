@@ -1,0 +1,98 @@
+.TH BUSH-TASKS 1 "2026-09-12" "bush-tasks 2.1.0" "User Commands"
+.SH NAME
+bush-tasks \- a small cross-platform CLI task manager
+.SH SYNOPSIS
+.B bush-tasks
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+.B bush-tasks
+is an interactive command-line task manager. It stores tasks in a JSON file
+.RB ( tasks.json )
+in the current working directory.
+.PP
+Run
+.B bush-tasks
+without arguments to start the interactive loop. Type
+.B exit
+to quit.
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-version
+Print version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print help and exit.
+.SH COMMANDS
+.TP
+.BI add " text"
+Add a new task with the given text.
+.TP
+.BI del " number"
+Delete the task with the given 1-based number.
+.TP
+.BI edit " number text"
+Replace the text of the task with the given number.
+.TP
+.BI sub " number text"
+Add a subtask to the task with the given number.
+.TP
+.BI priority " number level"
+Change the priority of a task. Level must be one of:
+.BR low ,
+.BR medium ,
+.B high ,
+or
+.BR urgent .
+.TP
+.BI status " number state"
+Change the status of a task. State must be one of:
+.BR pending ,
+.BR done ,
+or
+.BR postponed .
+.TP
+.B tasks
+List all tasks.
+.TP
+.B clear
+Delete all tasks.
+.TP
+.BR exit " or " quit
+Exit the program.
+.SH FILES
+.TP
+.I tasks.json
+The task database. Created automatically on first save.
+.SH EXAMPLES
+.TP
+Add a task:
+.RS
+.EX
+> add Write documentation
+Task added
+.EE
+.RE
+.TP
+Change its priority:
+.RS
+.EX
+> priority 1 high
+Priority updated
+.EE
+.RE
+.TP
+Mark it done:
+.RS
+.EX
+> status 1 done
+Status updated
+.EE
+.RE
+.SH AUTHOR
+Bushmasterson <belyi.platon0211@gmail.com>
+.SH LICENSE
+MIT.
+.SH SEE ALSO
+Full documentation at:
+.UR https://github.com/Bushmasterson/bush-tasks
+.UE

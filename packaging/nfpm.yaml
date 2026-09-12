@@ -1,0 +1,50 @@
+name: bush-tasks
+arch: ${NFPM_ARCH}
+platform: linux
+version: ${VERSION}
+release: "1"
+section: utils
+priority: optional
+maintainer: Bushmasterson <belyi.platon0211@gmail.com>
+description: |
+  A small cross-platform CLI task manager written in C++17.
+
+  Features:
+    - Add, edit, delete tasks and subtasks
+    - Priority levels: low, medium, high, urgent
+    - Status tracking: pending, done, postponed
+    - Persistent storage in a JSON file
+    - Native binaries for Linux, Windows, and macOS
+
+homepage: https://github.com/Bushmasterson/bush-tasks
+license: MIT
+contents:
+  - src: ./dist/bush-tasks
+    dst: /usr/bin/bush-tasks
+    file_info:
+      mode: 0755
+
+  - src: ./packaging/bush-tasks.1
+    dst: /usr/share/man/man1/bush-tasks.1
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/completions/bush-tasks.bash
+    dst: /usr/share/bash-completion/completions/bush-tasks
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/completions/_bush-tasks
+    dst: /usr/share/zsh/site-functions/_bush-tasks
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/completions/bush-tasks.fish
+    dst: /usr/share/fish/vendor_completions.d/bush-tasks.fish
+    file_info:
+      mode: 0644
+
+  - src: ./packaging/completions/bush-tasks.ps1
+    dst: /usr/share/powershell-completion/bush-tasks.ps1
+    file_info:
+      mode: 0644
