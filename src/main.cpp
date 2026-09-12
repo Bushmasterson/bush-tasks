@@ -12,28 +12,27 @@
 
 namespace {
 
-void printVersion() {
+void printVersion( ) {
   std::cout << "bush-tasks " << BUSH_TASKS_VERSION << '\n';
 }
 
-void printHelp() {
-  std::cout
-      << "Usage: bush-tasks [OPTIONS]\n"
-      << "\n"
-      << "Options:\n"
-      << "  -v, --version   Print version and exit\n"
-      << "  -h, --help      Print this help and exit\n"
-      << "\n"
-      << "Interactive commands (once running):\n"
-      << "  add <text>\n"
-      << "  del <number>\n"
-      << "  edit <number> <text>\n"
-      << "  sub <number> <text>\n"
-      << "  priority <number> <low|medium|high|urgent>\n"
-      << "  status <number> <done|postponed|pending>\n"
-      << "  tasks\n"
-      << "  clear\n"
-      << "  exit\n";
+void printHelp( ) {
+  std::cout << "Usage: bush-tasks [OPTIONS]\n"
+            << "\n"
+            << "Options:\n"
+            << "  -v, --version   Print version and exit\n"
+            << "  -h, --help      Print this help and exit\n"
+            << "\n"
+            << "Interactive commands (once running):\n"
+            << "  add <text>\n"
+            << "  del <number>\n"
+            << "  edit <number> <text>\n"
+            << "  sub <number> <text>\n"
+            << "  priority <number> <low|medium|high|urgent>\n"
+            << "  status <number> <done|postponed|pending>\n"
+            << "  tasks\n"
+            << "  clear\n"
+            << "  exit\n";
 }
 
 } // namespace
@@ -47,15 +46,15 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
     const char* arg = argv[i];
     if (std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--version") == 0) {
-      printVersion();
+      printVersion( );
       return 0;
     }
     if (std::strcmp(arg, "-h") == 0 || std::strcmp(arg, "--help") == 0) {
-      printHelp();
+      printHelp( );
       return 0;
     }
     std::cerr << "Unknown option: " << arg << "\n\n";
-    printHelp();
+    printHelp( );
     return 2;
   }
 
@@ -63,9 +62,9 @@ int main(int argc, char** argv) {
   auto tasks = bush_tasks::loadTasks(filePath);
 
   while (true) {
-    bush_tasks::renderHeader();
+    bush_tasks::renderHeader( );
     bush_tasks::renderTasks(tasks);
-    bush_tasks::renderHelp();
+    bush_tasks::renderHelp( );
 
     std::string input;
     if (!std::getline(std::cin, input)) {
