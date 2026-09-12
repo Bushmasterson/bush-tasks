@@ -416,7 +416,7 @@ jobs:
           dependency-snapshot: false
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ matrix.artifact }}
 
@@ -556,7 +556,7 @@ jobs:
 
       - name: Attest universal binary
         if: steps.verify_inputs.outputs.present == 'true'
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: bush-tasks-macos-universal
 
@@ -617,7 +617,7 @@ jobs:
           sha256sum "$FILE" > "$FILE.sha256"
 
       - name: Attest source tarball
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: bush-tasks-*-src.tar.gz
 
