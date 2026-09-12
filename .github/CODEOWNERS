@@ -1,0 +1,10 @@
+# Default owner for everything
+
+- @Bushmasterson
+
+# Critical paths — требуют особого внимания
+
+/.github/workflows/ @Bushmasterson
+/CMakeLists.txt @Bushmasterson
+/.clang-format @Bushmasterson
+/.pre-commit-config.yaml @Bushmasterson
