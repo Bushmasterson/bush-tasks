@@ -1,12 +1,13 @@
 # Changelog
 
-## v2.2.1
+## v2.2.2
 
 ## What's Changed
 * feat(cli): add help, version, and command aliases by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/17
+* fix(cmake): add config.cpp and i18n.cpp to library by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/19
 
 
-**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.0...v2.2.1
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.0...v2.2.2
 
 ## v2.2.0
 
@@ -123,3 +124,6 @@
 
 
 ## v1.0.1
+
+
+
