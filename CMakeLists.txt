@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(BUSH_TASKS_VERSION "2.2.1" CACHE STRING "Project version")
+set(BUSH_TASKS_VERSION "2.4.0" CACHE STRING "Project version")
 
 project(bush_tasks
     VERSION     ${BUSH_TASKS_VERSION}
@@ -223,3 +223,16 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/bush_tasksConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/bush_tasks
 )
+
+option(BUSH_TASKS_BUILD_GUI "Copy C++ binary for Electron GUI" OFF)
+
+if(BUSH_TASKS_BUILD_GUI)
+    # Просто копируем бинарник в build/, чтобы main.js его нашёл
+    add_custom_target(bush_tasks_gui ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:bush-tasks>
+            ${CMAKE_BINARY_DIR}/bush-tasks
+        DEPENDS bush-tasks
+        COMMENT "Copying bush-tasks binary for Electron GUI"
+    )
+endif()

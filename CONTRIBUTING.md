@@ -15,8 +15,6 @@ test, and submit changes.
 | Python   | 3.12+   | Only for pre-commit hooks       |
 | Git      | any     |                                 |
 
-Windows users: build via **MSYS2 UCRT64** shell, not PowerShell.
-
 ---
 
 ## Setup

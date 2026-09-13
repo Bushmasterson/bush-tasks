@@ -1,66 +1,53 @@
-# Build directories
+# ─── Build artifacts ───────────────────────────────
 build/
 build-*/
 out/
-cmake-build-*/
+dist/
 
-# CMake artifacts
+# ─── C++ ───────────────────────────────────────────
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.exe
+*.pdb
+
+# ─── CMake ─────────────────────────────────────────
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-CTestTestfile.cmake
-Testing/
-compile_commands.json
-install_manifest.txt
+Makefile
 
-# Runtime data
+# ─── Runtime data ──────────────────────────────────
 tasks.json
-test_tasks.json
-*.log
+tasks.json.tmp
+tasks.json.bak
 
-# IDE / editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Pre-commit cache
-.pre-commit-cache/
+# ─── Node / Electron ───────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.pnpm-store/
+dist_electron/
+.electron-builder/
 .cache/
 
-# Python (for pre-commit)
-__pycache__/
-*.py[cod]
-.venv/
-venv/
+# ─── IDE ───────────────────────────────────────────
+.vscode/
+.idea/
+.clion/
+*.swp
+*.swo
 
-# OS
+# ─── OS ────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Compiled binaries (in case any slip into root)
-*.o
-*.a
-*.so
-*.dylib
-*.dll
-*.exe
-*.lib
-*.exp
-*.pdb
-*.ilk
-*.out
-
-# Coverage
-*.gcda
-*.gcno
-*.gcov
-coverage/
-
-# Fuzz artifacts
-crash-*
-leak-*
-timeout-*
-oom-*
+# ─── Logs ──────────────────────────────────────────
+*.log
+logs/
