@@ -52,3 +52,31 @@ desktop.ini
 # ─── Logs ──────────────────────────────────────────
 *.log
 logs/
+
+# ─── Android ───────────────────────────────────────
+android/.gradle/
+android/local.properties
+android/.idea/
+android/build/
+android/app/build/
+android/.cxx/
+android/.externalNativeBuild/
+android/captures/
+android/captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+android/.gradle/
+android/local.properties
+android/.idea/
+android/build/
+android/app/build/
+android/.cxx/
+android/.externalNativeBuild/
+android/captures/
+android/gradle/gradle-daemon-jvm.properties
+*.apk
+*.aab
+*.keystore
+*.jks
