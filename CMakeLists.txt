@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(BUSH_TASKS_VERSION "2.4.0" CACHE STRING "Project version")
+set(BUSH_TASKS_VERSION "0.0.0" CACHE STRING "Project version")
 
 project(bush_tasks
     VERSION     ${BUSH_TASKS_VERSION}
