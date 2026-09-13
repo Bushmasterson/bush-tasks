@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.0.0
+
+## What's Changed
+* feat: electron GUI for bush-tasks by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/25
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.4.0...v3.0.0
+
 ## v2.4.0
 
 **Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.3.0...v2.4.0
@@ -128,3 +136,6 @@
 
 
 ## v1.0.1
+
+
+
