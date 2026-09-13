@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -14,18 +15,25 @@
 
 namespace {
 
+struct CliOptions {
+  bool showVersion = false;
+  bool showHelp = false;
+  bool valid = true;
+  std::string language;
+};
+
 void printVersion( ) {
   std::cout << "bush-tasks " << BUSH_TASKS_VERSION << '\n';
 }
 
 void printUsage( ) {
-  std::cout << "Usage: bush-tasks [OPTIONS]\n"
-            << "\n"
-            << "Options:\n"
-            << "  -v, --version   Print version and exit\n"
-            << "  -h, --help      Print help and exit\n"
-            << "\n"
-            << "Once running, use these interactive commands:\n"
+  using bush_tasks::tr;
+  std::cout << tr("main.usage_header") << "\n\n"
+            << tr("main.options_header") << "\n"
+            << tr("main.opt_help") << "\n"
+            << tr("main.opt_version") << "\n"
+            << tr("main.opt_language") << "\n\n"
+            << tr("main.commands_header") << "\n"
             << "  add <text>\n"
             << "  del <number>\n"
             << "  edit <number> <text>\n"
@@ -45,24 +53,32 @@ void enableUtf8Console( ) {
 #endif
 }
 
-enum class CliAction { Continue, ExitSuccess, ExitError };
-
-CliAction parseArguments(int argc, char** argv) {
+CliOptions parseArguments(int argc, char** argv) {
+  CliOptions opt;
   for (int i = 1; i < argc; ++i) {
     const char* arg = argv[i];
     if (std::strcmp(arg, "-v") == 0 || std::strcmp(arg, "--version") == 0) {
-      printVersion( );
-      return CliAction::ExitSuccess;
+      opt.showVersion = true;
+      continue;
     }
     if (std::strcmp(arg, "-h") == 0 || std::strcmp(arg, "--help") == 0) {
-      printUsage( );
-      return CliAction::ExitSuccess;
+      opt.showHelp = true;
+      continue;
     }
-    std::cerr << "Unknown option: " << arg << "\n\n";
-    printUsage( );
-    return CliAction::ExitError;
+    if (std::strcmp(arg, "-l") == 0 || std::strcmp(arg, "--language") == 0) {
+      if (i + 1 >= argc) {
+        std::cerr << bush_tasks::tr("main.unknown_option", {{"option", arg}}) << "\n\n";
+        opt.valid = false;
+        return opt;
+      }
+      opt.language = argv[++i];
+      continue;
+    }
+    std::cerr << bush_tasks::tr("main.unknown_option", {{"option", arg}}) << "\n\n";
+    opt.valid = false;
+    return opt;
   }
-  return CliAction::Continue;
+  return opt;
 }
 
 } // namespace
@@ -70,20 +86,36 @@ CliAction parseArguments(int argc, char** argv) {
 int main(int argc, char** argv) {
   enableUtf8Console( );
 
-  switch (parseArguments(argc, argv)) {
-  case CliAction::ExitSuccess:
-    return 0;
-  case CliAction::ExitError:
-    return 2;
-  case CliAction::Continue:
-    break;
-  }
-
+  // Load built-in locales first so that parseArguments() can already use tr().
   bush_tasks::initI18n( );
 
+  // Apply persisted language, then any explicit CLI override.
   const bush_tasks::Config cfg = bush_tasks::loadConfig( );
   if (!cfg.language.empty( )) {
     bush_tasks::setLanguage(cfg.language);
+  }
+
+  const CliOptions opt = parseArguments(argc, argv);
+
+  if (!opt.valid) {
+    printUsage( );
+    return 2;
+  }
+
+  if (!opt.language.empty( )) {
+    if (!bush_tasks::setLanguage(opt.language)) {
+      std::cerr << bush_tasks::tr("settings.unknown_language", {{"code", opt.language}}) << "\n";
+      return 2;
+    }
+  }
+
+  if (opt.showVersion) {
+    printVersion( );
+    return 0;
+  }
+  if (opt.showHelp) {
+    printUsage( );
+    return 0;
   }
 
   const std::string filePath = bush_tasks::configDirectory( ) + "/tasks.json";
@@ -104,7 +136,7 @@ int main(int argc, char** argv) {
     }
 
     if (!bush_tasks::saveTasks(tasks, filePath)) {
-      std::cerr << "Warning: failed to save tasks to " << filePath << '\n';
+      std::cerr << bush_tasks::tr("main.save_warning", {{"path", filePath}}) << "\n";
     }
   }
 

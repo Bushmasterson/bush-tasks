@@ -5,7 +5,6 @@ namespace locales_data {
 
 inline constexpr const char* EN = R"json(@LOCALES_EN_JSON@)json";
 inline constexpr const char* RU = R"json(@LOCALES_RU_JSON@)json";
-inline constexpr const char* ES = R"json(@LOCALES_ES_JSON@)json";
 
 } // namespace locales_data
 } // namespace bush_tasks
