@@ -94,6 +94,20 @@ void handleSettingsCommand(std::istringstream& iss) {
     return;
   }
 
+  if (sub == "reset") {
+    bush_tasks::Config cfg; // defaults: language = "en"
+    bush_tasks::saveConfig(cfg);
+    bush_tasks::setLanguage(cfg.language);
+    std::cout << "✓ " << tr("settings.reset_done") << "\n";
+    return;
+  }
+
+  if (sub != "language" && sub != "lang") {
+    std::cout << tr("settings.usage") << "\n";
+    printHowToChange( );
+    return;
+  }
+
   if (sub != "language" && sub != "lang") {
     std::cout << tr("settings.usage") << "\n";
     printHowToChange( );

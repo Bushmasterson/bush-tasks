@@ -119,7 +119,13 @@ int main(int argc, char** argv) {
   }
 
   const std::string filePath = bush_tasks::configDirectory( ) + "/tasks.json";
-  auto tasks = bush_tasks::loadTasks(filePath);
+  auto loadResult = bush_tasks::loadTasks(filePath);
+
+  if (loadResult.status == bush_tasks::LoadStatus::Corrupt) {
+    std::cerr << bush_tasks::tr("main.load_corrupt", {{"path", filePath}}) << "\n";
+  }
+
+  auto tasks = std::move(loadResult.tasks);
 
   while (true) {
     bush_tasks::renderHeader( );
