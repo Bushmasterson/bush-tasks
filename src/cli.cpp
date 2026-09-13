@@ -44,7 +44,7 @@ int terminalWidth( ) {
   }
   return 80;
 #else
-  struct winsize w{ };
+  struct winsize w {};
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) {
     return w.ws_col;
   }
