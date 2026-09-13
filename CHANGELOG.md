@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.4.0
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.3.0...v2.4.0
+
+## v2.3.0
+
+## What's Changed
+* fix(config): validate env-derived paths to prevent traversal by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/22
+* fix(config): validate env-derived paths to prevent traversal by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/23
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.2...v2.3.0
+
 ## v2.2.2
 
 ## What's Changed
@@ -115,3 +128,6 @@
 
 
 ## v1.0.1
+
+
+
