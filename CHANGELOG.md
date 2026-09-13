@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1.0
+
+## What's Changed
+* feat(gui): add electron-builder Windows installers by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/26
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v3.0.0...v3.1.0
+
 ## v3.0.0
 
 ## What's Changed
@@ -136,3 +144,6 @@
 
 
 ## v1.0.1
+
+
+
