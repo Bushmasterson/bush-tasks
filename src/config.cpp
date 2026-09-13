@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <string>
@@ -17,28 +18,83 @@ namespace bush_tasks {
 
 namespace {
 
+// Reject obviously unsafe paths supplied via environment variables:
+//   - empty or containing NUL
+//   - not absolute
+//   - any ".." path component (traversal)
+//
+// This breaks taint propagation from std::getenv() into file access calls.
+bool isSafeAbsolutePath(const std::string& path) {
+  if (path.empty( )) {
+    return false;
+  }
+  if (path.find('\0') != std::string::npos) {
+    return false;
+  }
+
+#ifdef _WIN32
+  const bool isDriveAbsolute = path.size( ) >= 3 && std::isalpha(static_cast<unsigned char>(path[0])) != 0 &&
+                               path[1] == ':' && (path[2] == '\\' || path[2] == '/');
+  const bool isUnc = path.size( ) >= 2 && (path[0] == '\\' || path[0] == '/') && (path[1] == '\\' || path[1] == '/');
+  if (!isDriveAbsolute && !isUnc) {
+    return false;
+  }
+#else
+  if (path[0] != '/') {
+    return false;
+  }
+#endif
+
+  // Walk path components and reject any that equals "..".
+  std::size_t start = 0;
+  while (start <= path.size( )) {
+    std::size_t end = path.find_first_of("/\\", start);
+    if (end == std::string::npos) {
+      end = path.size( );
+    }
+    const std::size_t len = end - start;
+    if (len == 2 && path[start] == '.' && path[start + 1] == '.') {
+      return false;
+    }
+    if (end == path.size( )) {
+      break;
+    }
+    start = end + 1;
+  }
+
+  return true;
+}
+
 std::string baseConfigDir( ) {
 #ifdef _WIN32
-  const char* appdata = std::getenv("APPDATA");
-  if (appdata && *appdata) {
-    return appdata;
+  if (const char* appdata = std::getenv("APPDATA"); appdata != nullptr) {
+    const std::string candidate = appdata;
+    if (isSafeAbsolutePath(candidate)) {
+      return candidate;
+    }
   }
-  const char* profile = std::getenv("USERPROFILE");
-  if (profile && *profile) {
-    return profile;
+  if (const char* profile = std::getenv("USERPROFILE"); profile != nullptr) {
+    const std::string candidate = profile;
+    if (isSafeAbsolutePath(candidate)) {
+      return candidate;
+    }
   }
-  return ".";
 #else
-  const char* xdg = std::getenv("XDG_CONFIG_HOME");
-  if (xdg && *xdg) {
-    return xdg;
+  if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg != nullptr) {
+    const std::string candidate = xdg;
+    if (isSafeAbsolutePath(candidate)) {
+      return candidate;
+    }
   }
-  const char* home = std::getenv("HOME");
-  if (home && *home) {
-    return std::string(home) + "/.config";
+  if (const char* home = std::getenv("HOME"); home != nullptr) {
+    const std::string candidate = home;
+    if (isSafeAbsolutePath(candidate)) {
+      return candidate + "/.config";
+    }
   }
-  return ".";
 #endif
+  // Safe fallback: current directory. Constant, no env taint.
+  return ".";
 }
 
 void makeDir(const std::string& path) {
