@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.2
+
+## What's Changed
+* fix: correct locale template, consumer include, and -l flag by @Bushmasterson in https://github.com/Bushmasterson/bush-tasks/pull/20
+
+
+**Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.1...v2.2.2
+
 ## v2.2.1
 
 **Full Changelog**: https://github.com/Bushmasterson/bush-tasks/compare/v2.2.2...v2.2.1
@@ -107,3 +115,6 @@
 
 
 ## v1.0.1
+
+
+
