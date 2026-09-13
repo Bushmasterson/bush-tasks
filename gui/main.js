@@ -4,7 +4,11 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 
 const BINARY_NAME = process.platform === 'win32' ? 'bush-tasks.exe' : 'bush-tasks';
-const BINARY_PATH = path.join(__dirname, '..', 'build', BINARY_NAME);
+
+// В dev — из ../build/, в prod — из resources/bin/
+const BINARY_PATH = app.isPackaged
+  ? path.join(process.resourcesPath, 'bin', BINARY_NAME)
+  : path.join(__dirname, '..', 'build', BINARY_NAME);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -31,7 +35,7 @@ ipcMain.handle('run-command', async (event, command) => {
     child.stderr.on('data', (data) => { errorOutput += data.toString(); });
 
     child.on('error', (err) => {
-      reject(new Error(`Failed to start bush-tasks: ${err.message}`));
+      reject(new Error(`Failed to start bush-tasks: ${err.message}\nPath: ${BINARY_PATH}`));
     });
 
     child.on('close', (code) => {

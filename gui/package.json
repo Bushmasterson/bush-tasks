@@ -1,14 +1,67 @@
 {
   "name": "bush-tasks-gui",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "description": "Electron GUI for bush-tasks",
   "main": "main.js",
+  "author": "Bushmasterson",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
   },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "world.mainland.bushtasks",
+    "productName": "bush-tasks",
+    "copyright": "Copyright © 2026 Bushmasterson",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../build/bush-tasks.exe",
+        "to": "bin/bush-tasks.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "resources/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "bush-tasks"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity",
+      "icon": "resources/icon.icns"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility",
+      "icon": "resources/icon.png"
+    }
   }
 }
