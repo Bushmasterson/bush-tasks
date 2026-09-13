@@ -3,7 +3,7 @@
 #include "bush_tasks/config.h"
 #include "bush_tasks/core.h"
 #include "bush_tasks/i18n.h"
-#include "bush_tasks/version.h.in"
+#include "bush_tasks/version.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -14,7 +14,6 @@
 #include <vector>
 
 #ifdef _WIN32
-#define NOMINMAX
 #include <windows.h>
 #else
 #include <sys/ioctl.h>
@@ -45,7 +44,7 @@ int terminalWidth( ) {
   }
   return 80;
 #else
-  struct winsize w{ };
+  struct winsize w {};
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) {
     return w.ws_col;
   }

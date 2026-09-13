@@ -2,7 +2,7 @@
 #include "bush_tasks/config.h"
 #include "bush_tasks/core.h"
 #include "bush_tasks/i18n.h"
-#include "bush_tasks/version.h.in"
+#include "bush_tasks/version.h"
 
 #include <cstring>
 #include <iostream>

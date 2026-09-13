@@ -1,0 +1,14 @@
+{
+  "name": "bush-tasks-gui",
+  "version": "2.4.0",
+  "description": "Electron GUI for bush-tasks",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
