@@ -2,12 +2,13 @@
 
 #include "bush_tasks/core.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 namespace bush_tasks {
 
-void renderHeader( );
+void renderHeader(std::size_t taskCount);
 void renderTasks(const std::vector<Task>& tasks);
 void renderHelp( );
 

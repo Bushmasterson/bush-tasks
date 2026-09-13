@@ -34,7 +34,8 @@ struct LoadResult {
   LoadStatus status = LoadStatus::Ok;
 };
 LoadResult loadTasks(const std::string& filePath);
-
 bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath);
+
+void sortTasks(std::vector<Task>& tasks);
 
 } // namespace bush_tasks

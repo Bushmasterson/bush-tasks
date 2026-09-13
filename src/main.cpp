@@ -22,6 +22,13 @@ struct CliOptions {
   std::string language;
 };
 
+void enableUtf8Console( ) {
+#ifdef _WIN32
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+#endif
+}
+
 void printVersion( ) {
   std::cout << "bush-tasks " << BUSH_TASKS_VERSION << '\n';
 }
@@ -33,24 +40,8 @@ void printUsage( ) {
             << tr("main.opt_help") << "\n"
             << tr("main.opt_version") << "\n"
             << tr("main.opt_language") << "\n\n"
-            << tr("main.commands_header") << "\n"
-            << "  add <text>\n"
-            << "  del <number>\n"
-            << "  edit <number> <text>\n"
-            << "  sub <number> <text>\n"
-            << "  priority <number> <low|medium|high|urgent>\n"
-            << "  status <number> <pending|done|postponed>\n"
-            << "  tasks\n"
-            << "  settings [language <code>]\n"
-            << "  clear\n"
-            << "  exit\n";
-}
-
-void enableUtf8Console( ) {
-#ifdef _WIN32
-  SetConsoleOutputCP(CP_UTF8);
-  SetConsoleCP(CP_UTF8);
-#endif
+            << tr("main.commands_header") << "\n";
+  bush_tasks::renderHelp( );
 }
 
 CliOptions parseArguments(int argc, char** argv) {
@@ -67,14 +58,12 @@ CliOptions parseArguments(int argc, char** argv) {
     }
     if (std::strcmp(arg, "-l") == 0 || std::strcmp(arg, "--language") == 0) {
       if (i + 1 >= argc) {
-        std::cerr << bush_tasks::tr("main.unknown_option", {{"option", arg}}) << "\n\n";
         opt.valid = false;
         return opt;
       }
       opt.language = argv[++i];
       continue;
     }
-    std::cerr << bush_tasks::tr("main.unknown_option", {{"option", arg}}) << "\n\n";
     opt.valid = false;
     return opt;
   }
@@ -86,10 +75,8 @@ CliOptions parseArguments(int argc, char** argv) {
 int main(int argc, char** argv) {
   enableUtf8Console( );
 
-  // Load built-in locales first so that parseArguments() can already use tr().
   bush_tasks::initI18n( );
 
-  // Apply persisted language, then any explicit CLI override.
   const bush_tasks::Config cfg = bush_tasks::loadConfig( );
   if (!cfg.language.empty( )) {
     bush_tasks::setLanguage(cfg.language);
@@ -97,16 +84,17 @@ int main(int argc, char** argv) {
 
   const CliOptions opt = parseArguments(argc, argv);
 
-  if (!opt.valid) {
-    printUsage( );
-    return 2;
-  }
-
   if (!opt.language.empty( )) {
     if (!bush_tasks::setLanguage(opt.language)) {
       std::cerr << bush_tasks::tr("settings.unknown_language", {{"code", opt.language}}) << "\n";
       return 2;
     }
+  }
+
+  if (!opt.valid) {
+    std::cerr << bush_tasks::tr("main.unknown_option") << "\n\n";
+    printUsage( );
+    return 2;
   }
 
   if (opt.showVersion) {
@@ -119,22 +107,23 @@ int main(int argc, char** argv) {
   }
 
   const std::string filePath = bush_tasks::configDirectory( ) + "/tasks.json";
-  auto loadResult = bush_tasks::loadTasks(filePath);
 
+  auto loadResult = bush_tasks::loadTasks(filePath);
   if (loadResult.status == bush_tasks::LoadStatus::Corrupt) {
     std::cerr << bush_tasks::tr("main.load_corrupt", {{"path", filePath}}) << "\n";
+    return 3;
   }
 
   auto tasks = std::move(loadResult.tasks);
 
-  while (true) {
-    bush_tasks::renderHeader( );
-    bush_tasks::renderTasks(tasks);
-    bush_tasks::renderHelp( );
+  bush_tasks::renderHeader(tasks.size( ));
+  bush_tasks::renderTasks(tasks);
+  bush_tasks::renderHelp( );
 
+  while (true) {
     std::string input;
     if (!std::getline(std::cin, input)) {
-      break; // EOF (Ctrl+D / Ctrl+Z then Enter)
+      break;
     }
 
     if (bush_tasks::handleCommand(input, tasks)) {
@@ -144,6 +133,9 @@ int main(int argc, char** argv) {
     if (!bush_tasks::saveTasks(tasks, filePath)) {
       std::cerr << bush_tasks::tr("main.save_warning", {{"path", filePath}}) << "\n";
     }
+
+    bush_tasks::renderHeader(tasks.size( ));
+    bush_tasks::renderTasks(tasks);
   }
 
   return 0;

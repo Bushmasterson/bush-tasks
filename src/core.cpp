@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <ctime>
 #include <fstream>
@@ -20,6 +21,21 @@ bool matchesAny(const std::string& value, std::initializer_list<const char*> opt
     }
   }
   return false;
+}
+
+int priorityRank(const std::string& p) {
+  if (p == bush_tasks::kPriorityUrgent) return 0;
+  if (p == bush_tasks::kPriorityHigh) return 1;
+  if (p == bush_tasks::kPriorityMedium) return 2;
+  if (p == bush_tasks::kPriorityLow) return 3;
+  return 4;
+}
+
+int statusRank(const std::string& s) {
+  if (s == bush_tasks::kStatusPending) return 0;
+  if (s == bush_tasks::kStatusPostponed) return 1;
+  if (s == bush_tasks::kStatusDone) return 2;
+  return 3;
 }
 
 } // namespace
@@ -43,7 +59,7 @@ std::string currentDate( ) {
   localtime_r(&now, &tmBuf);
 #endif
   std::ostringstream oss;
-  oss << std::put_time(&tmBuf, "%d.%m.%y");
+  oss << std::put_time(&tmBuf, "%Y-%m-%d");
   return oss.str( );
 }
 
@@ -78,9 +94,13 @@ LoadResult loadTasks(const std::string& filePath) {
 
     Task task;
     task.text = item.value("text", "");
-    task.priority = item.value("priority", kPriorityMedium);
     task.created = item.value("created", "");
-    task.status = item.value("status", kStatusPending);
+
+    const std::string priority = item.value("priority", kPriorityMedium);
+    task.priority = isValidPriority(priority) ? priority : kPriorityMedium;
+
+    const std::string status = item.value("status", kStatusPending);
+    task.status = isValidStatus(status) ? status : kStatusPending;
 
     if (item.contains("subtasks") && item["subtasks"].is_array( )) {
       for (const auto& sub : item["subtasks"]) {
@@ -112,7 +132,6 @@ bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
   const std::string tmpPath = filePath + ".tmp";
   const std::string bakPath = filePath + ".bak";
 
-  // 1) write to tmp
   {
     std::ofstream tmp(tmpPath, std::ios::trunc);
     if (!tmp.is_open( )) {
@@ -125,7 +144,6 @@ bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
     }
   }
 
-  // 2) rotate existing file to .bak (best-effort)
   std::ifstream existing(filePath);
   if (existing.is_open( )) {
     existing.close( );
@@ -133,14 +151,26 @@ bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
     std::rename(filePath.c_str( ), bakPath.c_str( ));
   }
 
-  // 3) promote tmp to target
   if (std::rename(tmpPath.c_str( ), filePath.c_str( )) != 0) {
-    // try to restore from .bak if rename failed
     std::rename(bakPath.c_str( ), filePath.c_str( ));
     return false;
   }
 
   return true;
+}
+
+void sortTasks(std::vector<Task>& tasks) {
+  std::stable_sort(tasks.begin( ), tasks.end( ), [](const Task& a, const Task& b) {
+    const int sa = statusRank(a.status);
+    const int sb = statusRank(b.status);
+    if (sa != sb) return sa < sb;
+
+    const int pa = priorityRank(a.priority);
+    const int pb = priorityRank(b.priority);
+    if (pa != pb) return pa < pb;
+
+    return a.created > b.created;
+  });
 }
 
 } // namespace bush_tasks

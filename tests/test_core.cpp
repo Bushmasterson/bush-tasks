@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -48,14 +49,14 @@ void testSaveLoadRoundTrip( ) {
   t1.text = "Buy milk";
   t1.priority = bush_tasks::kPriorityHigh;
   t1.status = bush_tasks::kStatusPending;
-  t1.created = "01.01.26";
+  t1.created = "2026-01-01";
   t1.subtasks = {"2 litres", "skim"};
 
   bush_tasks::Task t2;
   t2.text = "Write tests";
   t2.priority = bush_tasks::kPriorityUrgent;
   t2.status = bush_tasks::kStatusDone;
-  t2.created = "02.01.26";
+  t2.created = "2026-01-02";
 
   CHECK(bush_tasks::saveTasks({t1, t2}, kTestFile));
 
@@ -104,7 +105,7 @@ void testAtomicSaveCreatesBackup( ) {
   t1.text = "First";
   t1.priority = bush_tasks::kPriorityMedium;
   t1.status = bush_tasks::kStatusPending;
-  t1.created = "01.01.26";
+  t1.created = "2026-01-01";
 
   CHECK(bush_tasks::saveTasks({t1}, kTestFile));
 
@@ -112,7 +113,7 @@ void testAtomicSaveCreatesBackup( ) {
   t2.text = "Second";
   t2.priority = bush_tasks::kPriorityLow;
   t2.status = bush_tasks::kStatusDone;
-  t2.created = "02.01.26";
+  t2.created = "2026-01-02";
 
   CHECK(bush_tasks::saveTasks({t1, t2}, kTestFile));
 
@@ -129,6 +130,87 @@ void testAtomicSaveCreatesBackup( ) {
   CHECK(current.tasks[1].text == "Second");
 
   removeTestFiles( );
+}
+
+void testLoadNormalizesInvalidValues( ) {
+  removeTestFiles( );
+  {
+    std::ofstream f(kTestFile);
+    f << R"([
+      {"text": "bogus", "priority": "critical", "status": "running", "created": "2026-01-01"},
+      {"text": "no fields"}
+    ])";
+  }
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Ok);
+  CHECK(result.tasks.size( ) == 2);
+
+  CHECK(result.tasks[0].priority == bush_tasks::kPriorityMedium);
+  CHECK(result.tasks[0].status == bush_tasks::kStatusPending);
+
+  CHECK(result.tasks[1].priority == bush_tasks::kPriorityMedium);
+  CHECK(result.tasks[1].status == bush_tasks::kStatusPending);
+  CHECK(result.tasks[1].created.empty( ));
+
+  removeTestFiles( );
+}
+
+void testSortTasks( ) {
+  std::vector<bush_tasks::Task> tasks;
+
+  bush_tasks::Task a;
+  a.text = "low pending";
+  a.priority = bush_tasks::kPriorityLow;
+  a.status = bush_tasks::kStatusPending;
+  a.created = "2026-01-01";
+
+  bush_tasks::Task b;
+  b.text = "urgent pending";
+  b.priority = bush_tasks::kPriorityUrgent;
+  b.status = bush_tasks::kStatusPending;
+  b.created = "2026-01-02";
+
+  bush_tasks::Task c;
+  c.text = "done";
+  c.priority = bush_tasks::kPriorityUrgent;
+  c.status = bush_tasks::kStatusDone;
+  c.created = "2026-01-03";
+
+  bush_tasks::Task d;
+  d.text = "high postponed";
+  d.priority = bush_tasks::kPriorityHigh;
+  d.status = bush_tasks::kStatusPostponed;
+  d.created = "2026-01-04";
+
+  tasks = {a, c, d, b};
+  bush_tasks::sortTasks(tasks);
+
+  CHECK(tasks[0].text == "urgent pending");
+  CHECK(tasks[1].text == "low pending");
+  CHECK(tasks[2].text == "high postponed");
+  CHECK(tasks[3].text == "done");
+}
+
+void testSortSameStatusAndPriorityByDate( ) {
+  std::vector<bush_tasks::Task> tasks;
+
+  bush_tasks::Task older;
+  older.text = "older";
+  older.priority = bush_tasks::kPriorityMedium;
+  older.status = bush_tasks::kStatusPending;
+  older.created = "2026-01-01";
+
+  bush_tasks::Task newer;
+  newer.text = "newer";
+  newer.priority = bush_tasks::kPriorityMedium;
+  newer.status = bush_tasks::kStatusPending;
+  newer.created = "2026-03-01";
+
+  tasks = {older, newer};
+  bush_tasks::sortTasks(tasks);
+
+  CHECK(tasks[0].text == "newer");
+  CHECK(tasks[1].text == "older");
 }
 
 void testPriorityValidation( ) {
@@ -150,9 +232,9 @@ void testStatusValidation( ) {
 
 void testCurrentDateFormat( ) {
   const std::string date = bush_tasks::currentDate( );
-  CHECK(date.size( ) == 8); // dd.mm.yy
-  CHECK(date[2] == '.');
-  CHECK(date[5] == '.');
+  CHECK(date.size( ) == 10); // yyyy-mm-dd
+  CHECK(date[4] == '-');
+  CHECK(date[7] == '-');
 }
 
 } // namespace
@@ -164,6 +246,9 @@ int main( ) {
   testLoadCorruptFile( );
   testLoadNonArrayRoot( );
   testAtomicSaveCreatesBackup( );
+  testLoadNormalizesInvalidValues( );
+  testSortTasks( );
+  testSortSameStatusAndPriorityByDate( );
   testPriorityValidation( );
   testStatusValidation( );
   testCurrentDateFormat( );
