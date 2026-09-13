@@ -458,6 +458,98 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
+  gui_windows:
+    name: GUI (Windows)
+    needs: [build_data, prepare_release]
+    if: always() && needs.prepare_release.result == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup MSYS2 (UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+
+      - name: Build C++ core (GUI mode)
+        shell: msys2 {0}
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUSH_TASKS_VERSION=${{ needs.build_data.outputs.version }} \
+            -DBUSH_TASKS_BUILD_CLI=ON \
+            -DBUSH_TASKS_BUILD_GUI=ON \
+            -DBUSH_TASKS_STATIC=ON
+          cmake --build build
+
+      - name: Verify C++ binary exists
+        shell: bash
+        run: |
+          if [ ! -f build/bush-tasks.exe ]; then
+            echo "::error::build/bush-tasks.exe not found"
+            ls -la build || true
+            exit 1
+          fi
+          ls -la build/bush-tasks.exe
+
+      - name: Install GUI dependencies
+        working-directory: gui
+        run: npm ci
+
+      - name: Sync GUI version from tag
+        working-directory: gui
+        shell: bash
+        run: |
+          npm version "${{ needs.build_data.outputs.version }}" \
+            --no-git-tag-version \
+            --allow-same-version
+
+      - name: Build GUI installer + portable
+        working-directory: gui
+        run: npm run build:win
+
+      - name: List built artifacts
+        shell: bash
+        run: ls -la gui/dist/
+
+      - name: Attest GUI artifacts
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            gui/dist/*.exe
+
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          FILES=(gui/dist/*.exe)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::error::No .exe files produced by electron-builder"
+            exit 1
+          fi
+          gh release upload "${{ needs.build_data.outputs.tag }}" \
+            "${FILES[@]}" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
   macos_universal:
     name: macOS Universal
     needs: [build_data, build]
@@ -634,7 +726,7 @@ jobs:
 
   verify_release:
     name: Verify release assets
-    needs: [build_data, build, macos_universal, source_tarball]
+    needs: [build_data, build, gui_windows, macos_universal, source_tarball]
     if: always()
     continue-on-error: true
     runs-on: ubuntu-latest
