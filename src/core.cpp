@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <initializer_list>
@@ -46,25 +47,29 @@ std::string currentDate( ) {
   return oss.str( );
 }
 
-std::vector<Task> loadTasks(const std::string& filePath) {
+LoadResult loadTasks(const std::string& filePath) {
+  LoadResult result;
+
   std::ifstream file(filePath);
   if (!file.is_open( )) {
-    return { };
+    result.status = LoadStatus::Missing;
+    return result;
   }
 
   nlohmann::json root;
   try {
     file >> root;
   } catch (const std::exception&) {
-    return { };
+    result.status = LoadStatus::Corrupt;
+    return result;
   }
 
   if (!root.is_array( )) {
-    return { };
+    result.status = LoadStatus::Corrupt;
+    return result;
   }
 
-  std::vector<Task> tasks;
-  tasks.reserve(root.size( ));
+  result.tasks.reserve(root.size( ));
 
   for (const auto& item : root) {
     if (!item.is_object( )) {
@@ -85,10 +90,10 @@ std::vector<Task> loadTasks(const std::string& filePath) {
       }
     }
 
-    tasks.push_back(std::move(task));
+    result.tasks.push_back(std::move(task));
   }
 
-  return tasks;
+  return result;
 }
 
 bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
@@ -104,13 +109,38 @@ bool saveTasks(const std::vector<Task>& tasks, const std::string& filePath) {
     });
   }
 
-  std::ofstream file(filePath);
-  if (!file.is_open( )) {
+  const std::string tmpPath = filePath + ".tmp";
+  const std::string bakPath = filePath + ".bak";
+
+  // 1) write to tmp
+  {
+    std::ofstream tmp(tmpPath, std::ios::trunc);
+    if (!tmp.is_open( )) {
+      return false;
+    }
+    tmp << root.dump(2);
+    if (!tmp.good( )) {
+      std::remove(tmpPath.c_str( ));
+      return false;
+    }
+  }
+
+  // 2) rotate existing file to .bak (best-effort)
+  std::ifstream existing(filePath);
+  if (existing.is_open( )) {
+    existing.close( );
+    std::remove(bakPath.c_str( ));
+    std::rename(filePath.c_str( ), bakPath.c_str( ));
+  }
+
+  // 3) promote tmp to target
+  if (std::rename(tmpPath.c_str( ), filePath.c_str( )) != 0) {
+    // try to restore from .bak if rename failed
+    std::rename(bakPath.c_str( ), filePath.c_str( ));
     return false;
   }
 
-  file << root.dump(2);
-  return file.good( );
+  return true;
 }
 
 } // namespace bush_tasks

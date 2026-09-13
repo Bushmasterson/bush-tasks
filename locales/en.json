@@ -37,7 +37,7 @@
     "settings.language_current": "Current language: {name} ({code})",
     "settings.language_changed": "Language changed to {name} ({code})",
     "settings.unknown_language": "Unknown language: {code}",
-    "settings.usage": "Usage: settings [language [<code>]]",
+    "settings.usage": "Usage: settings [language [<code>] | reset]",
     "main.usage_header": "Usage: bush-tasks [OPTIONS]",
     "main.options_header": "Options:",
     "main.opt_help": "  -h, --help              print this help and exit",
@@ -48,6 +48,8 @@
     "main.commands_header": "Interactive commands:",
     "settings.current_mark": "current",
     "settings.how_to_change": "How to change language:",
-    "settings.example": "Example"
+    "settings.example": "Example",
+    "settings.reset_done": "Settings reset to defaults.",
+    "main.load_corrupt": "Warning: {path} is corrupt. Starting with an empty list. Backup kept at {path}.bak"
   }
 }

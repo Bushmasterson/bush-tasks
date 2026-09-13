@@ -2,12 +2,15 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 
 namespace {
 
 const std::string kTestFile = "test_tasks.json";
+const std::string kTestTmp = kTestFile + ".tmp";
+const std::string kTestBak = kTestFile + ".bak";
 
 #define CHECK(cond)                                                                                                    \
   do {                                                                                                                 \
@@ -17,25 +20,29 @@ const std::string kTestFile = "test_tasks.json";
     }                                                                                                                  \
   } while (0)
 
-void removeTestFile( ) {
+void removeTestFiles( ) {
   std::remove(kTestFile.c_str( ));
+  std::remove(kTestTmp.c_str( ));
+  std::remove(kTestBak.c_str( ));
 }
 
 void testLoadMissingFile( ) {
-  removeTestFile( );
-  const auto tasks = bush_tasks::loadTasks(kTestFile);
-  CHECK(tasks.empty( ));
+  removeTestFiles( );
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Missing);
+  CHECK(result.tasks.empty( ));
 }
 
 void testSaveEmptyList( ) {
-  removeTestFile( );
+  removeTestFiles( );
   CHECK(bush_tasks::saveTasks({ }, kTestFile));
-  const auto tasks = bush_tasks::loadTasks(kTestFile);
-  CHECK(tasks.empty( ));
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Ok);
+  CHECK(result.tasks.empty( ));
 }
 
 void testSaveLoadRoundTrip( ) {
-  removeTestFile( );
+  removeTestFiles( );
 
   bush_tasks::Task t1;
   t1.text = "Buy milk";
@@ -52,7 +59,10 @@ void testSaveLoadRoundTrip( ) {
 
   CHECK(bush_tasks::saveTasks({t1, t2}, kTestFile));
 
-  const auto loaded = bush_tasks::loadTasks(kTestFile);
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Ok);
+
+  const auto& loaded = result.tasks;
   CHECK(loaded.size( ) == 2);
   CHECK(loaded[0].text == t1.text);
   CHECK(loaded[0].priority == t1.priority);
@@ -61,6 +71,64 @@ void testSaveLoadRoundTrip( ) {
   CHECK(loaded[1].text == t2.text);
   CHECK(loaded[1].priority == t2.priority);
   CHECK(loaded[1].status == t2.status);
+}
+
+void testLoadCorruptFile( ) {
+  removeTestFiles( );
+  {
+    std::ofstream f(kTestFile);
+    f << "{ this is not valid json";
+  }
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Corrupt);
+  CHECK(result.tasks.empty( ));
+  removeTestFiles( );
+}
+
+void testLoadNonArrayRoot( ) {
+  removeTestFiles( );
+  {
+    std::ofstream f(kTestFile);
+    f << R"({"not": "an array"})";
+  }
+  const auto result = bush_tasks::loadTasks(kTestFile);
+  CHECK(result.status == bush_tasks::LoadStatus::Corrupt);
+  CHECK(result.tasks.empty( ));
+  removeTestFiles( );
+}
+
+void testAtomicSaveCreatesBackup( ) {
+  removeTestFiles( );
+
+  bush_tasks::Task t1;
+  t1.text = "First";
+  t1.priority = bush_tasks::kPriorityMedium;
+  t1.status = bush_tasks::kStatusPending;
+  t1.created = "01.01.26";
+
+  CHECK(bush_tasks::saveTasks({t1}, kTestFile));
+
+  bush_tasks::Task t2;
+  t2.text = "Second";
+  t2.priority = bush_tasks::kPriorityLow;
+  t2.status = bush_tasks::kStatusDone;
+  t2.created = "02.01.26";
+
+  CHECK(bush_tasks::saveTasks({t1, t2}, kTestFile));
+
+  // After second save, a .bak with the first version must exist.
+  const auto backup = bush_tasks::loadTasks(kTestBak);
+  CHECK(backup.status == bush_tasks::LoadStatus::Ok);
+  CHECK(backup.tasks.size( ) == 1);
+  CHECK(backup.tasks[0].text == "First");
+
+  // And the main file must hold the second version.
+  const auto current = bush_tasks::loadTasks(kTestFile);
+  CHECK(current.status == bush_tasks::LoadStatus::Ok);
+  CHECK(current.tasks.size( ) == 2);
+  CHECK(current.tasks[1].text == "Second");
+
+  removeTestFiles( );
 }
 
 void testPriorityValidation( ) {
@@ -93,11 +161,14 @@ int main( ) {
   testLoadMissingFile( );
   testSaveEmptyList( );
   testSaveLoadRoundTrip( );
+  testLoadCorruptFile( );
+  testLoadNonArrayRoot( );
+  testAtomicSaveCreatesBackup( );
   testPriorityValidation( );
   testStatusValidation( );
   testCurrentDateFormat( );
 
-  removeTestFile( );
+  removeTestFiles( );
 
   std::cout << "All tests passed.\n";
   return 0;

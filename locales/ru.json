@@ -37,7 +37,7 @@
     "settings.language_current": "Текущий язык: {name} ({code})",
     "settings.language_changed": "Язык изменён на {name} ({code})",
     "settings.unknown_language": "Неизвестный язык: {code}",
-    "settings.usage": "Использование: settings [language [<код>]]",
+    "settings.usage": "Использование: settings [language [<код>] | reset]",
     "main.usage_header": "Использование: bush-tasks [ОПЦИИ]",
     "main.options_header": "Опции:",
     "main.opt_help": "  -h, --help              показать справку и выйти",
@@ -48,6 +48,8 @@
     "main.commands_header": "Интерактивные команды:",
     "settings.current_mark": "текущий",
     "settings.how_to_change": "Как сменить язык:",
-    "settings.example": "Пример"
+    "settings.example": "Пример",
+    "settings.reset_done": "Настройки сброшены к значениям по умолчанию.",
+    "main.load_corrupt": "Внимание: файл {path} повреждён. Запуск с пустым списком. Резервная копия: {path}.bak"
   }
 }
