@@ -15,7 +15,7 @@ jobs:
     if: github.actor == 'dependabot[bot]'
     steps:
       - name: Approve patch and minor updates
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         id: metadata
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
