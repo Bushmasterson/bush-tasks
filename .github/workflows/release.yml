@@ -421,7 +421,7 @@ jobs:
           subject-path: ${{ matrix.artifact }}
 
       - name: Upload workflow artifact (binary)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}-bin
           path: ${{ matrix.artifact }}
@@ -429,7 +429,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload workflow artifact (SBOM)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}-sbom
           path: ${{ matrix.artifact }}.spdx.json
